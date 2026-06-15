@@ -19,6 +19,7 @@ The implemented phase now supports the core workflow needed for the upcoming tri
 - Calculate settlements only inside the selected Expense Set.
 - Track settlement payment status as pending, paid, or confirmed.
 - Let friends join an Expense Set from a shared join link after login or signup.
+- Show an Expense Set activity feed for key write actions.
 - Restrict expense visibility and write access by Expense Set membership in API validation and documented Supabase RLS.
 - Let only the payer edit or delete their own expense.
 
@@ -57,8 +58,9 @@ Source plan: `docs/superpowers/specs/2026-06-15-expense-sets-design.md` and `doc
 - No offline/PWA mode for weak signal during travel.
 - No CSV/PDF export for the final trip ledger.
 - Venmo integration is still a template and needs OAuth, token storage, and payment-state verification before being trusted for production.
-- No activity feed, edit history, comments, or notifications.
-- No production observability, error tracking, backup strategy, or migration framework.
+- Activity feed exists for key events, but comments and notifications are still out of scope.
+- Repeatable Supabase migration files exist, but automated migration execution is not wired into deployment yet.
+- Basic rate limiting and security headers exist. Production observability, durable distributed rate limiting, and backup drills are still pending.
 
 ## Tomorrow Runbook
 
@@ -219,7 +221,7 @@ Recommended differentiators:
 - Offline-first PWA entry with later sync.
 - Friend join links with no heavy onboarding.
 - Final trip closeout package: balances, category totals, receipts, and payment instructions in one shareable view.
-- Audit trail for edits and deletes.
+- Rich audit trail with before/after diffs for edits and deletes.
 - Payment handoff by preferred app, not only Venmo.
 - Smart duplicate detection for common trip cases such as two people entering the same dinner.
 

@@ -122,6 +122,18 @@ CREATE TABLE IF NOT EXISTS settlements (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create audit events table for Expense Set activity history
+CREATE TABLE IF NOT EXISTS audit_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  actor_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id UUID,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create saved AI Trip Closeouts table
 CREATE TABLE IF NOT EXISTS expense_set_closeouts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -138,6 +150,7 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expense_splits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settlements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expense_set_closeouts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
@@ -269,6 +282,16 @@ CREATE POLICY "Settlement parties can insert Expense Set settlements" ON settlem
     AND auth.uid() IN (from_user_id, to_user_id)
   );
 
+-- RLS Policies for audit events
+CREATE POLICY "Members can read Expense Set audit events" ON audit_events
+  FOR SELECT USING (public.is_group_member(group_id));
+
+CREATE POLICY "Members can create Expense Set audit events" ON audit_events
+  FOR INSERT WITH CHECK (
+    auth.uid() = actor_user_id
+    AND public.is_group_member(group_id)
+  );
+
 -- RLS Policies for AI Trip Closeouts
 CREATE POLICY "Members can read Expense Set closeouts" ON expense_set_closeouts
   FOR SELECT USING (public.is_group_member(group_id));
@@ -292,6 +315,7 @@ CREATE INDEX IF NOT EXISTS idx_expense_splits_user ON expense_splits(user_id);
 CREATE INDEX IF NOT EXISTS idx_settlements_group ON settlements(group_id);
 CREATE INDEX IF NOT EXISTS idx_settlements_from_user ON settlements(from_user_id);
 CREATE INDEX IF NOT EXISTS idx_settlements_to_user ON settlements(to_user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_events_group_created ON audit_events(group_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_closeouts_group_created ON expense_set_closeouts(group_id, created_at DESC);
 ```
 
@@ -347,6 +371,33 @@ ADD CONSTRAINT settlements_payment_status_check
 CHECK (payment_status IN ('pending', 'paid', 'confirmed'));
 
 CREATE INDEX IF NOT EXISTS idx_settlements_group ON settlements(group_id);
+
+CREATE TABLE IF NOT EXISTS audit_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  actor_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id UUID,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE audit_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Members can read Expense Set audit events" ON audit_events;
+CREATE POLICY "Members can read Expense Set audit events" ON audit_events
+  FOR SELECT USING (public.is_group_member(group_id));
+
+DROP POLICY IF EXISTS "Members can create Expense Set audit events" ON audit_events;
+CREATE POLICY "Members can create Expense Set audit events" ON audit_events
+  FOR INSERT WITH CHECK (
+    auth.uid() = actor_user_id
+    AND public.is_group_member(group_id)
+  );
+
+CREATE INDEX IF NOT EXISTS idx_audit_events_group_created
+ON audit_events(group_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS expense_set_closeouts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -454,10 +505,22 @@ Visit http://localhost:3200 in your browser!
      - `NEXT_PUBLIC_SUPABASE_URL`
      - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
      - `SUPABASE_SERVICE_ROLE_KEY`
+     - `NEXT_PUBLIC_APP_URL`
+     - `API_RATE_LIMIT_REQUESTS` (optional, default `120`)
+     - `API_RATE_LIMIT_WINDOW_MS` (optional, default `60000`)
      - `VENMO_ACCESS_TOKEN` (if using)
    - Click Deploy!
 
 3. **Your app is live!** 🎉
+
+### Database Migrations
+
+For repeatable Supabase upgrades, run migrations in order from `supabase/migrations`:
+
+1. `202606150001_expense_sets_core.sql`
+2. `202606150002_closeouts_and_audit.sql`
+
+The one-shot upgrade SQL in `docs/superpowers/plans/2026-06-15-closeout-db-upgrade.sql` remains available for manual Supabase SQL Editor runs.
 
 ## Venmo Integration Setup (Optional)
 

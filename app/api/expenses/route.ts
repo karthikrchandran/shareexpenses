@@ -8,6 +8,8 @@ import {
 } from '@/lib/expenseSetAccess';
 import { normalizeExpenseCategory } from '@/lib/expenseCategories';
 import { normalizeExpenseDate, normalizeExpenseNotes } from '@/lib/expenseMetadata';
+import { insertAuditEvent } from '@/lib/auditTrail';
+import { checkApiRateLimit } from '@/lib/rateLimit';
 
 async function loadExpenseSetMemberIds(supabase: any, expenseSetId: string) {
   const { data, error } = await supabase
@@ -25,6 +27,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const { description, amount, paid_by_user_id, group_id, splits, category, expense_date, notes } = body;
+
+    const rateLimit = checkApiRateLimit(request, paid_by_user_id);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
 
     if (!description || !amount || !paid_by_user_id || !Array.isArray(splits)) {
       return NextResponse.json(
@@ -86,6 +93,19 @@ export async function POST(request: NextRequest) {
       .insert(splitRows);
 
     if (splitError) throw splitError;
+
+    await insertAuditEvent(supabase, {
+      groupId: expenseSetId,
+      actorUserId: paid_by_user_id,
+      action: 'expense.created',
+      targetType: 'expense',
+      targetId: expenseData.id,
+      metadata: {
+        description,
+        amount: Number(amount),
+        category: expenseCategory,
+      },
+    });
 
     return NextResponse.json(expenseData, { status: 201 });
   } catch (error: any) {

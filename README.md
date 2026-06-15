@@ -9,6 +9,7 @@ A modern app where friends can easily track shared expenses and settle up using 
 - **Friend Join Links** - Copy a trip link so friends can sign in and join the Expense Set
 - **Trip Ledger Details** - Capture expense dates and notes for cleaner trip review
 - **Payment Status** - Track pending, paid, and confirmed settlement records
+- **Activity Feed** - Show recent Expense Set changes for accountability
 
 ✅ **User Authentication** - Sign up and login with email/password via Supabase  
 ✅ **Add Expenses** - Log expenses with flexible descriptions and amounts  
@@ -135,6 +136,10 @@ Use **Expense Date** for the day the cost happened and **Notes** for context suc
 3. Create and copy the friend join link
 4. Send the link to friends
 5. Friends sign up or log in, then they are added to the Expense Set automatically
+
+### Activity History
+
+The dashboard shows recent Expense Set activity: expenses, member joins, settlements, and closeout generation. This gives the group a lightweight audit trail during the trip.
 
 ### AI Trip Closeout
 

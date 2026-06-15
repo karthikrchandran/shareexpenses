@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
+import { insertAuditEvent } from '@/lib/auditTrail';
+import { checkApiRateLimit } from '@/lib/rateLimit';
 
 async function isExpenseSetMember(
   supabase: ReturnType<typeof createServiceRoleClient>,
@@ -57,6 +59,11 @@ export async function POST(
     const body = await request.json();
     const { actorUserId, userId } = body;
 
+    const rateLimit = checkApiRateLimit(request, actorUserId);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     if (!actorUserId || !userId) {
       return NextResponse.json(
         { error: 'actorUserId and userId are required' },
@@ -94,6 +101,15 @@ export async function POST(
       );
 
     if (error) throw error;
+
+    await insertAuditEvent(supabase, {
+      groupId: params.id,
+      actorUserId,
+      action: 'member.added',
+      targetType: 'member',
+      targetId: userId,
+      metadata: {},
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

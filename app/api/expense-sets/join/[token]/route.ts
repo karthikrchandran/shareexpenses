@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
 import { validateJoinToken } from '@/lib/joinLinks';
+import { insertAuditEvent } from '@/lib/auditTrail';
+import { checkApiRateLimit } from '@/lib/rateLimit';
 
 export async function POST(
   request: NextRequest,
@@ -11,6 +13,11 @@ export async function POST(
     const token = validateJoinToken(params.token);
     const body = await request.json();
     const { actorUserId } = body;
+
+    const rateLimit = checkApiRateLimit(request, actorUserId);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
 
     if (!actorUserId) {
       return NextResponse.json({ error: 'actorUserId is required' }, { status: 400 });
@@ -49,6 +56,15 @@ export async function POST(
       );
 
     if (memberError) throw memberError;
+
+    await insertAuditEvent(supabase, {
+      groupId: expenseSet.id,
+      actorUserId,
+      action: 'member.joined',
+      targetType: 'member',
+      targetId: actorUserId,
+      metadata: { via: 'join-link' },
+    });
 
     return NextResponse.json({
       expenseSetId: expenseSet.id,

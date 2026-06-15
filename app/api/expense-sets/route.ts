@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
 import { createJoinToken } from '@/lib/joinLinks';
+import { checkApiRateLimit } from '@/lib/rateLimit';
+import { insertAuditEvent } from '@/lib/auditTrail';
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,6 +37,11 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceRoleClient();
     const body = await request.json();
     const { name, description, createdByUserId, memberIds = [] } = body;
+
+    const rateLimit = checkApiRateLimit(request, createdByUserId);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
 
     if (!name || !createdByUserId) {
       return NextResponse.json(
@@ -84,6 +91,15 @@ export async function POST(request: NextRequest) {
       );
 
     if (membersError) throw membersError;
+
+    await insertAuditEvent(supabase, {
+      groupId: expenseSet.id,
+      actorUserId: createdByUserId,
+      action: 'expense-set.created',
+      targetType: 'expense-set',
+      targetId: expenseSet.id,
+      metadata: { name },
+    });
 
     return NextResponse.json(expenseSet, { status: 201 });
   } catch (error: any) {

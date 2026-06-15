@@ -3,6 +3,8 @@ import { createServiceRoleClient } from '@/lib/supabase';
 import { ensureExpenseSetMember } from '@/lib/expenseSetAccess';
 import { buildTripCloseoutSummary } from '@/lib/tripCloseout';
 import { polishTripCloseoutWithAI } from '@/lib/openaiCloseout';
+import { insertAuditEvent } from '@/lib/auditTrail';
+import { checkApiRateLimit } from '@/lib/rateLimit';
 
 async function loadExpenseSetMemberIds(supabase: any, expenseSetId: string) {
   const { data, error } = await supabase
@@ -62,6 +64,11 @@ export async function POST(
     const supabase = createServiceRoleClient();
     const body = await request.json();
     const { actorUserId } = body;
+
+    const rateLimit = checkApiRateLimit(request, actorUserId);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
 
     if (!actorUserId) {
       return NextResponse.json({ error: 'actorUserId is required' }, { status: 400 });
@@ -150,6 +157,18 @@ export async function POST(
       .single();
 
     if (closeoutError) throw closeoutError;
+
+    await insertAuditEvent(supabase, {
+      groupId: params.id,
+      actorUserId,
+      action: 'closeout.generated',
+      targetType: 'closeout',
+      targetId: closeout.id,
+      metadata: {
+        ai_generated: polished.aiGenerated,
+        ai_model: polished.aiModel,
+      },
+    });
 
     return NextResponse.json(closeout, { status: 201 });
   } catch (error: any) {

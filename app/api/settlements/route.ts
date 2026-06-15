@@ -7,6 +7,8 @@ import {
   validateSettlementParticipants,
 } from '@/lib/expenseSetAccess';
 import { normalizeSettlementStatus } from '@/lib/settlementPaymentMethods';
+import { insertAuditEvent } from '@/lib/auditTrail';
+import { checkApiRateLimit } from '@/lib/rateLimit';
 
 async function loadExpenseSetMemberIds(supabase: any, expenseSetId: string) {
   const { data, error } = await supabase
@@ -83,6 +85,11 @@ export async function POST(request: NextRequest) {
       venmo_transaction_id,
     } = body;
 
+    const rateLimit = checkApiRateLimit(request, actor_user_id);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     if (!actor_user_id || !from_user_id || !to_user_id || !group_id || !payment_method) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -121,6 +128,19 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    await insertAuditEvent(supabase, {
+      groupId: expenseSetId,
+      actorUserId: actor_user_id,
+      action: 'settlement.recorded',
+      targetType: 'settlement',
+      targetId: data.id,
+      metadata: {
+        amount: settlementAmount,
+        payment_method,
+        payment_status: normalizedPaymentStatus,
+      },
+    });
 
     return NextResponse.json(data, { status: 201 });
   } catch (error: any) {

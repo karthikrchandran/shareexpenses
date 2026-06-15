@@ -13,6 +13,7 @@ interface SettlementSummaryProps {
   expenses: any[];
   currentUserId: string;
   expenseSetId: string;
+  onSettlementChanged?: () => void;
 }
 
 type SettlementRow = { from: string; to: string; amount: number };
@@ -32,6 +33,7 @@ export default function SettlementSummary({
   expenses,
   currentUserId,
   expenseSetId,
+  onSettlementChanged,
 }: SettlementSummaryProps) {
   const [splits, setSplits] = useState<any[]>([]);
   const [usersById, setUsersById] = useState<Record<string, string>>({});
@@ -174,6 +176,7 @@ export default function SettlementSummary({
     }
 
     setSettledPayments((currentPayments) => [...currentPayments, payload]);
+    onSettlementChanged?.();
     return payload as SettledPayment;
   };
 

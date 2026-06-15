@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
 import { buildJoinUrl, createJoinToken } from '@/lib/joinLinks';
+import { checkApiRateLimit } from '@/lib/rateLimit';
 
 async function isExpenseSetMember(
   supabase: ReturnType<typeof createServiceRoleClient>,
@@ -30,6 +31,11 @@ export async function POST(
     const supabase = createServiceRoleClient();
     const body = await request.json();
     const { actorUserId, regenerate = false } = body;
+
+    const rateLimit = checkApiRateLimit(request, actorUserId);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
 
     if (!actorUserId) {
       return NextResponse.json({ error: 'actorUserId is required' }, { status: 400 });

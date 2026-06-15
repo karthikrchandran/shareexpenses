@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth, logout } from '@/lib/useAuth';
 import { Plus, LogOut, DollarSign, UserPlus } from 'lucide-react';
 import AddExpenseModal from '@/components/AddExpenseModal';
+import ActivityFeed from '@/components/ActivityFeed';
 import CreateExpenseSetModal from '@/components/CreateExpenseSetModal';
 import ExpenseList from '@/components/ExpenseList';
 import ManageExpenseSetMembersModal from '@/components/ManageExpenseSetMembersModal';
@@ -25,6 +26,7 @@ export default function Dashboard() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [expensesLoading, setExpensesLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState('');
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0);
 
   const selectedExpenseSet = useMemo(
     () => expenseSets.find((expenseSet) => expenseSet.id === selectedExpenseSetId) || null,
@@ -121,6 +123,7 @@ export default function Dashboard() {
 
   const handleExpenseAdded = () => {
     loadExpenses();
+    setActivityRefreshKey((key) => key + 1);
     setShowModal(false);
     setEditingExpense(null);
   };
@@ -137,6 +140,11 @@ export default function Dashboard() {
 
   const handleMembersChanged = () => {
     loadMembers();
+    setActivityRefreshKey((key) => key + 1);
+  };
+
+  const handleSettlementChanged = () => {
+    setActivityRefreshKey((key) => key + 1);
   };
 
   const handleLogout = async () => {
@@ -306,7 +314,17 @@ export default function Dashboard() {
                   expenses={expenses}
                   currentUserId={user?.id || ''}
                   expenseSetId={selectedExpenseSetId}
+                  onSettlementChanged={handleSettlementChanged}
                 />
+                {selectedExpenseSet && (
+                  <div className="mt-8">
+                    <ActivityFeed
+                      currentUserId={user?.id || ''}
+                      expenseSetId={selectedExpenseSetId}
+                      refreshKey={activityRefreshKey}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </>

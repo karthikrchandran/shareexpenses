@@ -8,6 +8,8 @@ import {
 } from '@/lib/expenseSetAccess';
 import { normalizeExpenseCategory } from '@/lib/expenseCategories';
 import { normalizeExpenseDate, normalizeExpenseNotes } from '@/lib/expenseMetadata';
+import { insertAuditEvent } from '@/lib/auditTrail';
+import { checkApiRateLimit } from '@/lib/rateLimit';
 
 async function loadExpenseSetMemberIds(supabase: any, expenseSetId: string) {
   const { data, error } = await supabase
@@ -28,6 +30,11 @@ export async function PUT(
     const body = await request.json();
 
     const { paidByUserId, description, amount, splits, category, expense_date, notes } = body;
+
+    const rateLimit = checkApiRateLimit(request, paidByUserId);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
 
     if (!paidByUserId || !description || !amount || !Array.isArray(splits)) {
       return NextResponse.json(
@@ -106,6 +113,19 @@ export async function PUT(
 
     if (splitInsertError) throw splitInsertError;
 
+    await insertAuditEvent(supabase, {
+      groupId: existingExpense.group_id,
+      actorUserId: paidByUserId,
+      action: 'expense.updated',
+      targetType: 'expense',
+      targetId: params.id,
+      metadata: {
+        description,
+        amount: Number(amount),
+        category: expenseCategory,
+      },
+    });
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Expense update error:', error);
@@ -121,6 +141,11 @@ export async function DELETE(
     const supabase = createServiceRoleClient();
     const body = await request.json();
     const { paidByUserId } = body;
+
+    const rateLimit = checkApiRateLimit(request, paidByUserId);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
 
     if (!paidByUserId) {
       return NextResponse.json(
@@ -164,6 +189,15 @@ export async function DELETE(
       .eq('id', params.id);
 
     if (expenseDeleteError) throw expenseDeleteError;
+
+    await insertAuditEvent(supabase, {
+      groupId: existingExpense.group_id,
+      actorUserId: paidByUserId,
+      action: 'expense.deleted',
+      targetType: 'expense',
+      targetId: params.id,
+      metadata: {},
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
