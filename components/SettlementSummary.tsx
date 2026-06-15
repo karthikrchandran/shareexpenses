@@ -3,11 +3,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { calculateSettlements, formatCurrency } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import {
+  buildOutsideAppSettlementMessage,
+  getSettlementPaymentMethods,
+  type SettlementPaymentMethodId,
+} from '@/lib/settlementPaymentMethods';
 
 interface SettlementSummaryProps {
   expenses: any[];
   currentUserId: string;
 }
+
+type SettlementRow = { from: string; to: string; amount: number };
 
 export default function SettlementSummary({
   expenses,
@@ -16,7 +23,13 @@ export default function SettlementSummary({
   const [splits, setSplits] = useState<any[]>([]);
   const [usersById, setUsersById] = useState<Record<string, string>>({});
   const [settlingKey, setSettlingKey] = useState<string | null>(null);
+  const [activePaymentKey, setActivePaymentKey] = useState<string | null>(null);
+  const [settledOutsideAppKeys, setSettledOutsideAppKeys] = useState<Set<string>>(
+    () => new Set()
+  );
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const venmoConfigured = process.env.NEXT_PUBLIC_VENMO_ENABLED === 'true';
+  const paymentMethods = getSettlementPaymentMethods({ venmoConfigured });
 
   useEffect(() => {
     const loadSettlementData = async () => {
@@ -69,7 +82,7 @@ export default function SettlementSummary({
 
   const settlementRows = useMemo(() => {
     const matrix = calculateSettlements(expenses, splits);
-    const rows: Array<{ from: string; to: string; amount: number }> = [];
+    const rows: SettlementRow[] = [];
 
     Object.entries(matrix).forEach(([fromUserId, creditors]) => {
       Object.entries(creditors).forEach(([toUserId, amount]) => {
@@ -90,10 +103,40 @@ export default function SettlementSummary({
   const netBalance = owedToYou.reduce((sum, row) => sum + row.amount, 0)
     - youOwe.reduce((sum, row) => sum + row.amount, 0);
 
-  const handleSettleUp = async (row: { from: string; to: string; amount: number }) => {
-    const key = `${row.from}-${row.to}-${row.amount}`;
+  const getSettlementKey = (row: SettlementRow) => `${row.from}-${row.to}-${row.amount}`;
+
+  const getCounterpartyName = (row: SettlementRow) => {
+    const counterpartyId = row.from === currentUserId ? row.to : row.from;
+    return usersById[counterpartyId] || 'Friend';
+  };
+
+  const handleSettleUp = (row: SettlementRow) => {
+    const key = getSettlementKey(row);
+    setStatusMessage('');
+    setActivePaymentKey((currentKey) => (currentKey === key ? null : key));
+  };
+
+  const handleOutsideAppSettlement = (row: SettlementRow) => {
+    const key = getSettlementKey(row);
+    setSettledOutsideAppKeys((currentKeys) => {
+      const nextKeys = new Set(currentKeys);
+      nextKeys.add(key);
+      return nextKeys;
+    });
+    setActivePaymentKey(null);
+    setStatusMessage(
+      buildOutsideAppSettlementMessage({
+        recipientName: getCounterpartyName(row),
+        amount: row.amount,
+      })
+    );
+  };
+
+  const handleVenmoSettlement = async (row: SettlementRow) => {
+    const key = getSettlementKey(row);
     setSettlingKey(key);
     setStatusMessage('');
+    setActivePaymentKey(null);
 
     try {
       const response = await fetch('/api/venmo', {
@@ -119,6 +162,65 @@ export default function SettlementSummary({
     } finally {
       setSettlingKey(null);
     }
+  };
+
+  const handlePaymentMethod = (methodId: SettlementPaymentMethodId, row: SettlementRow) => {
+    if (methodId === 'outside-app') {
+      handleOutsideAppSettlement(row);
+      return;
+    }
+
+    handleVenmoSettlement(row);
+  };
+
+  const renderSettlementAction = (row: SettlementRow) => {
+    const key = getSettlementKey(row);
+    const isSettling = settlingKey === key;
+    const isSelectingPayment = activePaymentKey === key;
+    const isSettledOutsideApp = settledOutsideAppKeys.has(key);
+
+    if (isSettledOutsideApp) {
+      return (
+        <p className="text-xs text-gray-600 mt-1">Settled outside app</p>
+      );
+    }
+
+    return (
+      <div className="relative mt-1">
+        <button
+          type="button"
+          onClick={() => handleSettleUp(row)}
+          disabled={isSettling}
+          aria-expanded={isSelectingPayment}
+          className="text-xs text-primary hover:underline disabled:opacity-50"
+        >
+          {isSettling ? 'Settling...' : 'Settle Up'}
+        </button>
+
+        {isSelectingPayment && (
+          <div className="absolute right-0 z-10 mt-2 w-48 rounded-lg border border-gray-200 bg-white p-2 text-left shadow-lg">
+            <div className="space-y-1">
+              {paymentMethods.map((method) => (
+                <button
+                  key={method.id}
+                  type="button"
+                  onClick={() => handlePaymentMethod(method.id, row)}
+                  disabled={method.disabled}
+                  className="block w-full rounded-md px-3 py-2 text-left text-xs hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span className="block font-semibold text-gray-900">
+                    {method.label}
+                  </span>
+                  <span className="block text-gray-500">
+                    {method.description}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -152,7 +254,7 @@ export default function SettlementSummary({
             <li>Add expenses with your friends</li>
             <li>Choose who the expense is split between</li>
             <li>ShareExpenses calculates who owes what</li>
-            <li>Settle up using Venmo</li>
+            <li>Settle up using cash, an outside app, or Venmo later</li>
           </ol>
         </div>
 
@@ -178,13 +280,7 @@ export default function SettlementSummary({
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-red-600">{formatCurrency(row.amount)}</p>
-                    <button
-                      onClick={() => handleSettleUp(row)}
-                      disabled={settlingKey === `${row.from}-${row.to}-${row.amount}`}
-                      className="text-xs text-primary hover:underline mt-1 disabled:opacity-50"
-                    >
-                      {settlingKey === `${row.from}-${row.to}-${row.amount}` ? 'Settling...' : 'Settle Up'}
-                    </button>
+                    {renderSettlementAction(row)}
                   </div>
                 </div>
               ))}
@@ -195,7 +291,10 @@ export default function SettlementSummary({
                     <p className="text-gray-700">{usersById[row.from] || 'Friend'} owes you</p>
                     <p className="font-semibold text-gray-900">Incoming</p>
                   </div>
-                  <p className="font-semibold text-green-600">{formatCurrency(row.amount)}</p>
+                  <div className="text-right">
+                    <p className="font-semibold text-green-600">{formatCurrency(row.amount)}</p>
+                    {renderSettlementAction(row)}
+                  </div>
                 </div>
               ))}
             </div>
