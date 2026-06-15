@@ -1,14 +1,46 @@
 'use client';
 
+import { useState } from 'react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Edit2, Trash2 } from 'lucide-react';
 
 interface ExpenseListProps {
   expenses: any[];
   onRefresh: () => void;
+  currentUserId: string;
+  onEditExpense: (expense: any) => void;
 }
 
-export default function ExpenseList({ expenses, onRefresh }: ExpenseListProps) {
+export default function ExpenseList({ expenses, onRefresh, currentUserId, onEditExpense }: ExpenseListProps) {
+  const [busyExpenseId, setBusyExpenseId] = useState<string | null>(null);
+
+  const deleteExpense = async (expenseId: string) => {
+    const confirmed = window.confirm('Delete this expense? This will also remove its split records.');
+    if (!confirmed) return;
+
+    setBusyExpenseId(expenseId);
+    try {
+      const response = await fetch(`/api/expenses/${expenseId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ paidByUserId: currentUserId }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to delete expense');
+      }
+
+      onRefresh();
+    } catch (error) {
+      console.error('Failed to delete expense:', error);
+    } finally {
+      setBusyExpenseId(null);
+    }
+  };
+
   return (
     <div className="divide-y">
       {expenses.map((expense) => (
@@ -27,20 +59,25 @@ export default function ExpenseList({ expenses, onRefresh }: ExpenseListProps) {
             <div className="font-semibold text-lg text-primary">
               {formatCurrency(expense.amount)}
             </div>
-            <div className="flex gap-2">
-              <button
-                className="p-2 text-gray-400 hover:text-gray-600 transition"
-                title="Edit"
-              >
-                <Edit2 size={18} />
-              </button>
-              <button
-                className="p-2 text-gray-400 hover:text-red-600 transition"
-                title="Delete"
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
+            {expense.paid_by_user_id === currentUserId && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onEditExpense(expense)}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition"
+                  title="Edit"
+                >
+                  <Edit2 size={18} />
+                </button>
+                <button
+                  onClick={() => deleteExpense(expense.id)}
+                  disabled={busyExpenseId === expense.id}
+                  className="p-2 text-gray-400 hover:text-red-600 transition disabled:opacity-50"
+                  title="Delete"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ))}

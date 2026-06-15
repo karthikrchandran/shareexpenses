@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { calculateSettlements, formatCurrency } from '@/lib/utils';
-import { ArrowRight, Send } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface SettlementSummaryProps {
   expenses: any[];
@@ -13,8 +13,51 @@ export default function SettlementSummary({
   expenses,
   currentUserId,
 }: SettlementSummaryProps) {
-  const [showVenmoModal, setShowVenmoModal] = useState(false);
-  const [selectedSettlement, setSelectedSettlement] = useState<any>(null);
+  const [splits, setSplits] = useState<any[]>([]);
+  const [usersById, setUsersById] = useState<Record<string, string>>({});
+  const [settlingKey, setSettlingKey] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>('');
+
+  useEffect(() => {
+    const loadSettlementData = async () => {
+      if (expenses.length === 0) {
+        setSplits([]);
+        setUsersById({});
+        return;
+      }
+
+      const expenseIds = expenses.map((expense) => expense.id);
+
+      const { data: splitsData, error: splitsError } = await supabase
+        .from('expense_splits')
+        .select('expense_id, user_id, amount')
+        .in('expense_id', expenseIds);
+
+      if (splitsError) {
+        console.error('Failed to load splits for settlements:', splitsError);
+        return;
+      }
+
+      setSplits(splitsData || []);
+
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, name');
+
+      if (usersError) {
+        console.error('Failed to load users for settlements:', usersError);
+        return;
+      }
+
+      const mappedUsers = (usersData || []).reduce((acc: Record<string, string>, user: any) => {
+        acc[user.id] = user.name;
+        return acc;
+      }, {});
+      setUsersById(mappedUsers);
+    };
+
+    loadSettlementData();
+  }, [expenses]);
 
   // Calculate total and current user's balance
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
@@ -24,8 +67,59 @@ export default function SettlementSummary({
     .filter((exp) => exp.paid_by_user_id === currentUserId)
     .reduce((sum, exp) => sum + exp.amount, 0);
 
-  // In a full implementation, you'd calculate the share
-  const estimatedShare = totalExpenses / 2; // Placeholder
+  const settlementRows = useMemo(() => {
+    const matrix = calculateSettlements(expenses, splits);
+    const rows: Array<{ from: string; to: string; amount: number }> = [];
+
+    Object.entries(matrix).forEach(([fromUserId, creditors]) => {
+      Object.entries(creditors).forEach(([toUserId, amount]) => {
+        rows.push({
+          from: fromUserId,
+          to: toUserId,
+          amount: amount as number,
+        });
+      });
+    });
+
+    return rows;
+  }, [expenses, splits]);
+
+  const youOwe = settlementRows.filter((row) => row.from === currentUserId);
+  const owedToYou = settlementRows.filter((row) => row.to === currentUserId);
+
+  const netBalance = owedToYou.reduce((sum, row) => sum + row.amount, 0)
+    - youOwe.reduce((sum, row) => sum + row.amount, 0);
+
+  const handleSettleUp = async (row: { from: string; to: string; amount: number }) => {
+    const key = `${row.from}-${row.to}-${row.amount}`;
+    setSettlingKey(key);
+    setStatusMessage('');
+
+    try {
+      const response = await fetch('/api/venmo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from_user_id: row.from,
+          to_user_id: row.to,
+          amount: row.amount,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to settle with Venmo');
+      }
+
+      setStatusMessage('Venmo payment initiated successfully.');
+    } catch (error: any) {
+      setStatusMessage(error?.message || 'Failed to settle with Venmo');
+    } finally {
+      setSettlingKey(null);
+    }
+  };
 
   return (
     <>
@@ -43,9 +137,9 @@ export default function SettlementSummary({
             </div>
 
             <div className="border-t pt-3">
-              <p className="text-sm text-gray-600">Total Expenses</p>
-              <p className="text-2xl font-bold text-primary">
-                {formatCurrency(totalExpenses)}
+              <p className="text-sm text-gray-600">Net Balance</p>
+              <p className={`text-2xl font-bold ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {netBalance >= 0 ? '+' : '-'}{formatCurrency(Math.abs(netBalance))}
               </p>
             </div>
           </div>
@@ -66,31 +160,49 @@ export default function SettlementSummary({
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Settlements</h3>
 
-          <div className="text-center text-gray-500">
-            <p className="text-sm">Add more expenses to see settlements</p>
-          </div>
+          {statusMessage && (
+            <p className="text-xs text-gray-600 mb-3">{statusMessage}</p>
+          )}
+
+          {settlementRows.length === 0 ? (
+            <div className="text-center text-gray-500">
+              <p className="text-sm">Add expenses with splits to see settlements</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {youOwe.map((row, index) => (
+                <div key={`owe-${index}`} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                  <div className="text-sm">
+                    <p className="text-gray-700">You owe</p>
+                    <p className="font-semibold text-gray-900">{usersById[row.to] || 'Friend'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-red-600">{formatCurrency(row.amount)}</p>
+                    <button
+                      onClick={() => handleSettleUp(row)}
+                      disabled={settlingKey === `${row.from}-${row.to}-${row.amount}`}
+                      className="text-xs text-primary hover:underline mt-1 disabled:opacity-50"
+                    >
+                      {settlingKey === `${row.from}-${row.to}-${row.amount}` ? 'Settling...' : 'Settle Up'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {owedToYou.map((row, index) => (
+                <div key={`owed-${index}`} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div className="text-sm">
+                    <p className="text-gray-700">{usersById[row.from] || 'Friend'} owes you</p>
+                    <p className="font-semibold text-gray-900">Incoming</p>
+                  </div>
+                  <p className="font-semibold text-green-600">{formatCurrency(row.amount)}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Venmo Modal Placeholder */}
-      {showVenmoModal && selectedSettlement && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
-            <h3 className="text-xl font-bold mb-4">
-              Pay via Venmo
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Amount: <span className="font-semibold">{formatCurrency(selectedSettlement.amount)}</span>
-            </p>
-            <button
-              onClick={() => setShowVenmoModal(false)}
-              className="btn-primary w-full"
-            >
-              Complete Settlement
-            </button>
-          </div>
-        </div>
-      )}
     </>
   );
 }

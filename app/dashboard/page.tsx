@@ -12,6 +12,7 @@ export default function Dashboard() {
   const { user, loading } = useAuth();
   const [expenses, setExpenses] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<any | null>(null);
   const [expensesLoading, setExpensesLoading] = useState(false);
 
   useEffect(() => {
@@ -40,6 +41,12 @@ export default function Dashboard() {
   const handleExpenseAdded = () => {
     loadExpenses();
     setShowModal(false);
+    setEditingExpense(null);
+  };
+
+  const handleEditExpense = (expense: any) => {
+    setEditingExpense(expense);
+    setShowModal(true);
   };
 
   const handleLogout = async () => {
@@ -87,7 +94,10 @@ export default function Dashboard() {
             <p className="text-gray-600">Track and split expenses with your friends</p>
           </div>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setEditingExpense(null);
+              setShowModal(true);
+            }}
             className="btn-primary flex items-center gap-2"
           >
             <Plus size={20} />
@@ -116,7 +126,12 @@ export default function Dashboard() {
                   </button>
                 </div>
               ) : (
-                <ExpenseList expenses={expenses} onRefresh={loadExpenses} />
+                <ExpenseList
+                  expenses={expenses}
+                  onRefresh={loadExpenses}
+                  currentUserId={user?.id}
+                  onEditExpense={handleEditExpense}
+                />
               )}
             </div>
           </div>
@@ -132,9 +147,13 @@ export default function Dashboard() {
       {showModal && (
         <AddExpenseModal
           isOpen={showModal}
-          onClose={() => setShowModal(false)}
+          onClose={() => {
+            setShowModal(false);
+            setEditingExpense(null);
+          }}
           onExpenseAdded={handleExpenseAdded}
           currentUserId={user?.id}
+          existingExpense={editingExpense}
         />
       )}
     </div>
