@@ -1,6 +1,52 @@
 -- AI Trip Closeout database upgrade
 -- Run this in Supabase SQL Editor for an existing ShareExpenses database.
 
+-- Expense Set RLS helper functions. Older local databases may not have these yet.
+CREATE OR REPLACE FUNCTION public.is_group_member(target_group_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.group_members
+    WHERE group_id = target_group_id
+      AND user_id = auth.uid()
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_group_member_user(
+  target_group_id uuid,
+  target_user_id uuid
+)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.group_members
+    WHERE group_id = target_group_id
+      AND user_id = target_user_id
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_expense_group_member(target_expense_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.expenses
+    WHERE id = target_expense_id
+      AND public.is_group_member(group_id)
+  );
+$$;
+
 ALTER TABLE settlements
 ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES groups(id) ON DELETE CASCADE;
 
