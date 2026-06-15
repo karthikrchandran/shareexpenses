@@ -3,7 +3,9 @@ const test = require('node:test');
 
 const {
   ensureActorCanMutateExpense,
+  ensureExpenseSetMember,
   validateExpenseSetId,
+  validateSplitTotal,
   validateSplitParticipants,
 } = require('../lib/expenseSetAccess.js');
 
@@ -41,5 +43,34 @@ test('allows only the payer to edit or delete their expense', () => {
   assert.throws(
     () => ensureActorCanMutateExpense({ paid_by_user_id: 'alice' }, 'bob', 'delete'),
     /Only the expense payer can delete this expense/
+  );
+});
+
+test('requires the actor to be an Expense Set member', () => {
+  assert.doesNotThrow(() =>
+    ensureExpenseSetMember('alice', ['alice', 'bob'], 'add expenses')
+  );
+
+  assert.throws(
+    () => ensureExpenseSetMember('mallory', ['alice', 'bob'], 'add expenses'),
+    /Only Expense Set members can add expenses/
+  );
+});
+
+test('requires split totals to match the expense amount', () => {
+  assert.doesNotThrow(() =>
+    validateSplitTotal(
+      [{ user_id: 'alice', amount: 12.5 }, { user_id: 'bob', amount: 7.5 }],
+      20
+    )
+  );
+
+  assert.throws(
+    () =>
+      validateSplitTotal(
+        [{ user_id: 'alice', amount: 12.5 }, { user_id: 'bob', amount: 6 }],
+        20
+      ),
+    /Split total must equal expense amount/
   );
 });

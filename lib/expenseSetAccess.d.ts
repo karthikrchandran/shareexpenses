@@ -18,6 +18,17 @@ export function validateSplitParticipants(
   memberIds: string[]
 ): void;
 
+export function validateSplitTotal(
+  splits: ExpenseSplitInput[],
+  amount: number
+): void;
+
+export function ensureExpenseSetMember(
+  actorUserId: string,
+  memberIds: string[],
+  action: string
+): void;
+
 export function ensureActorCanMutateExpense(
   expense: MutableExpense,
   actorUserId: string,
