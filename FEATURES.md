@@ -17,6 +17,13 @@
 - ✅ View expense history
 - ✅ Expense timestamps and user info
 
+### Expense Sets
+- ✅ Create Expense Sets for trips, events, months, or households
+- ✅ Add existing registered users as members
+- ✅ Expense Set-specific expenses
+- ✅ Expense Set-specific settlement tracking
+- ✅ Member-scoped expense visibility
+
 ### Settlement Calculation
 - ✅ Automatic settlement calculation (who owes whom)
 - ✅ Simplified settlement algorithm
@@ -38,12 +45,11 @@
 
 ## 🚀 Phase 2 Features (Coming Soon)
 
-### Groups/Trips
-- 🔄 Create groups (e.g., "Vegas Trip", "Roommates")
-- 🔄 Invite friends to groups
-- 🔄 Group-specific expenses
-- 🔄 Group settlement tracking
-- 🔄 Group chat/notes
+### Expense Set Collaboration
+- 🔄 Invite friends by email
+- 🔄 Remove members from Expense Sets
+- 🔄 Expense Set roles and ownership transfer
+- 🔄 Expense Set chat/notes
 
 ### Advanced Splits
 - 🔄 Custom split amounts
@@ -151,8 +157,8 @@
 ## Known Limitations
 
 1. **Venmo Integration**: Currently basic implementation, requires proper OAuth 2.0 for production
-2. **Custom Splits**: Not yet implemented - only even splits available
-3. **Groups**: Not yet implemented - all expenses are shared
+2. **Expense Set invitations**: Only existing registered users can be added for now
+3. **Member removal**: Expense Set members cannot be removed yet
 4. **Notifications**: Not yet implemented
 5. **Analytics**: Basic statistics only
 

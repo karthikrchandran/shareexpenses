@@ -6,6 +6,7 @@ A modern app where friends can easily track shared expenses and settle up using 
 
 ✅ **User Authentication** - Sign up and login with email/password via Supabase  
 ✅ **Add Expenses** - Log expenses with flexible descriptions and amounts  
+✅ **Expense Sets** - Organize expenses by trip, event, month, or household
 ✅ **Smart Splits** - Even splits or custom split amounts  
 ✅ **Settlement Tracking** - Automatic calculation of who owes whom  
 ✅ **Venmo Integration** - Settle payments directly through Venmo  
@@ -53,95 +54,7 @@ cp .env.example .env.local
 
 ### 4. Create Database Tables
 
-In Supabase, go to SQL Editor and run these queries:
-
-```sql
--- Users table
-CREATE TABLE users (
-  id UUID PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
-  email TEXT UNIQUE NOT NULL,
-  name TEXT NOT NULL,
-  phone TEXT,
-  venmo_handle TEXT,
-  avatar_url TEXT,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Expenses table
-CREATE TABLE expenses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id UUID,
-  description TEXT NOT NULL,
-  amount DECIMAL(10, 2) NOT NULL,
-  paid_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Expense splits (who owes what for each expense)
-CREATE TABLE expense_splits (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  expense_id UUID NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  amount DECIMAL(10, 2) NOT NULL,
-  percentage DECIMAL(5, 2),
-  is_itemized BOOLEAN DEFAULT FALSE,
-  UNIQUE(expense_id, user_id)
-);
-
--- Settlements (simplified tracking of who owes whom overall)
-CREATE TABLE settlements (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  from_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  to_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  amount DECIMAL(10, 2) NOT NULL,
-  settled BOOLEAN DEFAULT FALSE,
-  settled_at TIMESTAMP,
-  venmo_transaction_id TEXT,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Groups (for trip or group expenses)
-CREATE TABLE groups (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  description TEXT,
-  created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Group members
-CREATE TABLE group_members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  joined_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(group_id, user_id)
-);
-
--- Enable Row Level Security (RLS)
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE expense_splits ENABLE ROW LEVEL SECURITY;
-ALTER TABLE settlements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
-ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies - Users can read all users
-CREATE POLICY "Users can read all users" ON users FOR SELECT USING (true);
-
--- Users can update their own profile
-CREATE POLICY "Users can update own profile" ON users FOR UPDATE USING (auth.uid() = id);
-
--- Expenses can be read by anyone
-CREATE POLICY "Anyone can read expenses" ON expenses FOR SELECT USING (true);
-
--- Only authenticated users can insert expenses
-CREATE POLICY "Authenticated users can insert expenses" ON expenses FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-
--- Expense splits can be read by anyone
-CREATE POLICY "Anyone can read expense_splits" ON expense_splits FOR SELECT USING (true);
-```
+In Supabase, go to SQL Editor and run the complete schema from [SETUP.md](SETUP.md). The current schema creates membership-scoped Expense Sets, requires every expense to belong to one set, and includes RLS policies for set members.
 
 ### 5. (Optional) Configure Venmo Integration
 
@@ -190,14 +103,16 @@ shareexpenses/
 
 ### Adding an Expense
 
-1. Click "Add Expense" button
-2. Enter description (e.g., "Dinner at Joe's")
-3. Enter amount
-4. Select split type:
+1. Create or select an Expense Set
+2. Click "Add Expense" button
+3. Enter description (e.g., "Dinner at Joe's")
+4. Enter amount
+5. Select split type:
    - **Even**: Everyone pays equal share
    - **Custom**: Define specific amounts per person
-5. Select who the expense is split between
-6. Click "Add Expense"
+   - **Shares**: Split by proportional shares
+6. Select which Expense Set members are included
+7. Click "Add Expense"
 
 ### Settlement Tracking
 
@@ -217,7 +132,7 @@ View settlements in the right sidebar of the dashboard.
 
 ## Future Features
 
-- 🎯 Group/Trip expenses
+- 🎯 Expense Set invites and member management
 - 📊 Expense analytics
 - 💳 Multiple payment methods
 - 🔔 Notifications

@@ -52,10 +52,28 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create expenses table
+-- Create groups table. The app labels these as Expense Sets.
+CREATE TABLE IF NOT EXISTS groups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create group members table
+CREATE TABLE IF NOT EXISTS group_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(group_id, user_id)
+);
+
+-- Create expenses table. Every expense must belong to an Expense Set.
 CREATE TABLE IF NOT EXISTS expenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id UUID,
+  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   description TEXT NOT NULL,
   amount DECIMAL(10, 2) NOT NULL CHECK (amount > 0),
   paid_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -87,24 +105,6 @@ CREATE TABLE IF NOT EXISTS settlements (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create groups table (for trip or shared expenses)
-CREATE TABLE IF NOT EXISTS groups (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  description TEXT,
-  created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create group members table
-CREATE TABLE IF NOT EXISTS group_members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(group_id, user_id)
-);
-
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
@@ -123,21 +123,115 @@ CREATE POLICY "Users can update own profile" ON users
 CREATE POLICY "Users can insert their own profile" ON users
   FOR INSERT WITH CHECK (auth.uid() = id);
 
--- RLS Policies for expenses
-CREATE POLICY "Anyone can read expenses" ON expenses
-  FOR SELECT USING (true);
+-- RLS helper functions for Expense Set membership
+CREATE OR REPLACE FUNCTION public.is_group_member(target_group_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.group_members
+    WHERE group_id = target_group_id
+      AND user_id = auth.uid()
+  );
+$$;
 
-CREATE POLICY "Authenticated users can insert expenses" ON expenses
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE OR REPLACE FUNCTION public.is_group_member_user(
+  target_group_id uuid,
+  target_user_id uuid
+)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.group_members
+    WHERE group_id = target_group_id
+      AND user_id = target_user_id
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_expense_group_member(target_expense_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.expenses
+    WHERE id = target_expense_id
+      AND public.is_group_member(group_id)
+  );
+$$;
+
+-- RLS Policies for Expense Sets
+CREATE POLICY "Members can read Expense Sets" ON groups
+  FOR SELECT USING (public.is_group_member(id));
+
+CREATE POLICY "Authenticated users can create Expense Sets" ON groups
+  FOR INSERT WITH CHECK (auth.uid() = created_by);
+
+-- RLS Policies for Expense Set members
+CREATE POLICY "Members can read Expense Set members" ON group_members
+  FOR SELECT USING (public.is_group_member(group_id));
+
+CREATE POLICY "Members can add registered users to Expense Sets" ON group_members
+  FOR INSERT WITH CHECK (
+    public.is_group_member(group_id)
+    OR EXISTS (
+      SELECT 1
+      FROM public.groups
+      WHERE id = group_id
+        AND created_by = auth.uid()
+    )
+  );
+
+-- RLS Policies for expenses
+CREATE POLICY "Members can read Expense Set expenses" ON expenses
+  FOR SELECT USING (public.is_group_member(group_id));
+
+CREATE POLICY "Members can insert Expense Set expenses" ON expenses
+  FOR INSERT WITH CHECK (
+    auth.uid() = paid_by_user_id
+    AND public.is_group_member(group_id)
+  );
+
+CREATE POLICY "Payers can update their Expense Set expenses" ON expenses
+  FOR UPDATE USING (
+    auth.uid() = paid_by_user_id
+    AND public.is_group_member(group_id)
+  );
+
+CREATE POLICY "Payers can delete their Expense Set expenses" ON expenses
+  FOR DELETE USING (
+    auth.uid() = paid_by_user_id
+    AND public.is_group_member(group_id)
+  );
 
 -- RLS Policies for expense_splits
-CREATE POLICY "Anyone can read expense_splits" ON expense_splits
-  FOR SELECT USING (true);
+CREATE POLICY "Members can read Expense Set splits" ON expense_splits
+  FOR SELECT USING (public.is_expense_group_member(expense_id));
 
-CREATE POLICY "Authenticated users can insert splits" ON expense_splits
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Members can insert Expense Set splits" ON expense_splits
+  FOR INSERT WITH CHECK (
+    public.is_expense_group_member(expense_id)
+    AND EXISTS (
+      SELECT 1
+      FROM public.expenses
+      WHERE id = expense_id
+        AND public.is_group_member_user(group_id, user_id)
+    )
+  );
 
 -- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_group ON expenses(group_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_paid_by ON expenses(paid_by_user_id);
 CREATE INDEX IF NOT EXISTS idx_expense_splits_expense ON expense_splits(expense_id);
 CREATE INDEX IF NOT EXISTS idx_expense_splits_user ON expense_splits(user_id);
@@ -188,10 +282,13 @@ Visit http://localhost:3200 in your browser!
    - Email: bob@test.com / Password: test123
 
 2. **As Alice:**
+   - Create an Expense Set named "Dinner Test"
+   - Add Bob as a member
    - Add expense "Dinner" for $100 split with Bob
 
 3. **As Bob:**
-   - See the expense and settlement
+   - See the "Dinner Test" Expense Set
+   - See the expense and settlement inside that set
 
 4. **Settlement:**
    - Bob owes Alice $50
