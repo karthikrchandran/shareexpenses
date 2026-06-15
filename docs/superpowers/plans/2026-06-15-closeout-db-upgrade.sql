@@ -47,6 +47,19 @@ AS $$
   );
 $$;
 
+ALTER TABLE expenses
+ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'miscellaneous';
+
+ALTER TABLE expenses
+DROP CONSTRAINT IF EXISTS expenses_category_check;
+
+ALTER TABLE expenses
+ADD CONSTRAINT expenses_category_check
+CHECK (category IN ('lodging', 'food', 'groceries', 'fuel', 'miscellaneous'));
+
+CREATE INDEX IF NOT EXISTS idx_expenses_group_category
+ON expenses(group_id, category);
+
 ALTER TABLE settlements
 ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES groups(id) ON DELETE CASCADE;
 
