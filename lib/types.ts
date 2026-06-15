@@ -57,3 +57,9 @@ export interface GroupMember {
   user_id: string;
   joined_at: string;
 }
+
+export interface ExpenseSet extends Group {}
+
+export interface ExpenseSetMember extends GroupMember {
+  user?: User;
+}

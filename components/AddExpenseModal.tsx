@@ -3,12 +3,15 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { X, AlertCircle } from 'lucide-react';
+import { ExpenseSetMember } from '@/lib/types';
 
 interface AddExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
   onExpenseAdded: () => void;
   currentUserId: string;
+  expenseSetId: string;
+  members: ExpenseSetMember[];
   existingExpense?: any | null;
 }
 
@@ -17,6 +20,8 @@ export default function AddExpenseModal({
   onClose,
   onExpenseAdded,
   currentUserId,
+  expenseSetId,
+  members,
   existingExpense,
 }: AddExpenseModalProps) {
   const [description, setDescription] = useState('');
@@ -25,15 +30,8 @@ export default function AddExpenseModal({
   const [selectedUsers, setSelectedUsers] = useState<string[]>([currentUserId]);
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
   const [customShares, setCustomShares] = useState<Record<string, string>>({});
-  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (isOpen) {
-      loadUsers();
-    }
-  }, [isOpen]);
 
   useEffect(() => {
     const hydrateModal = async () => {
@@ -132,14 +130,15 @@ export default function AddExpenseModal({
     });
   }, [isOpen, splitType, selectedUsers, currentUserId]);
 
-  const loadUsers = async () => {
-    try {
-      const { data, error } = await supabase.from('users').select('*');
-      if (error) throw error;
-      setAllUsers(data || []);
-    } catch (err) {
-      console.error('Failed to load users:', err);
-    }
+  const memberUsers = members.map((member) => ({
+    id: member.user_id,
+    name: member.user?.name || 'Member',
+    email: member.user?.email,
+  }));
+
+  const findMemberName = (userId: string) => {
+    const member = memberUsers.find((user) => user.id === userId);
+    return member?.name || 'Member';
   };
 
   const handleToggleUser = (userId: string) => {
@@ -293,25 +292,24 @@ export default function AddExpenseModal({
           throw new Error(payload?.error || 'Failed to update expense');
         }
       } else {
-        const { data: expenseData, error: expenseError } = await supabase
-          .from('expenses')
-          .insert({
+        const response = await fetch('/api/expenses', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
             description,
             amount: amountNum,
             paid_by_user_id: currentUserId,
-          })
-          .select()
-          .single();
+            group_id: expenseSetId,
+            splits,
+          }),
+        });
 
-        if (expenseError) throw expenseError;
-
-        const insertSplits = splits.map((split) => ({
-          ...split,
-          expense_id: expenseData.id,
-        }));
-
-        const { error: splitsError } = await supabase.from('expense_splits').insert(insertSplits);
-        if (splitsError) throw splitsError;
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Failed to add expense');
+        }
       }
 
       onExpenseAdded();
@@ -403,7 +401,7 @@ export default function AddExpenseModal({
               Split Among
             </label>
             <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
-              {allUsers.map((user) => (
+              {memberUsers.map((user) => (
                 <label key={user.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
                   <input
                     type="checkbox"
@@ -411,7 +409,7 @@ export default function AddExpenseModal({
                     onChange={() => handleToggleUser(user.id)}
                     disabled={user.id === currentUserId}
                     className="rounded"
-                  />
+                      />
                   <span className={user.id === currentUserId ? 'font-semibold' : ''}>
                     {user.name}
                     {user.id === currentUserId && ' (You)'}
@@ -428,11 +426,10 @@ export default function AddExpenseModal({
               </label>
               <div className="space-y-2 border border-gray-200 rounded-lg p-3">
                 {[...new Set([...selectedUsers, currentUserId])].map((userId) => {
-                  const user = allUsers.find((u) => u.id === userId);
                   return (
                     <div key={userId} className="flex items-center gap-2">
                       <span className="text-sm text-gray-700 flex-1">
-                        {user?.name || 'User'}
+                        {findMemberName(userId)}
                         {userId === currentUserId && ' (You)'}
                       </span>
                       <input
@@ -462,11 +459,10 @@ export default function AddExpenseModal({
               </label>
               <div className="space-y-2 border border-gray-200 rounded-lg p-3">
                 {[...new Set([...selectedUsers, currentUserId])].map((userId) => {
-                  const user = allUsers.find((u) => u.id === userId);
                   return (
                     <div key={userId} className="flex items-center gap-2">
                       <span className="text-sm text-gray-700 flex-1">
-                        {user?.name || 'User'}
+                        {findMemberName(userId)}
                         {userId === currentUserId && ' (You)'}
                       </span>
                       <input
