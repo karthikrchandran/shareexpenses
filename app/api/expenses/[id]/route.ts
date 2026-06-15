@@ -1,5 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
+import {
+  ensureActorCanMutateExpense,
+  ensureExpenseSetMember,
+  validateSplitParticipants,
+  validateSplitTotal,
+} from '@/lib/expenseSetAccess';
+
+async function loadExpenseSetMemberIds(supabase: any, expenseSetId: string) {
+  const { data, error } = await supabase
+    .from('group_members')
+    .select('user_id')
+    .eq('group_id', expenseSetId);
+
+  if (error) throw error;
+  return (data || []).map((member: any) => member.user_id);
+}
 
 export async function PUT(
   request: NextRequest,
@@ -20,7 +36,7 @@ export async function PUT(
 
     const { data: existingExpense, error: existingExpenseError } = await supabase
       .from('expenses')
-      .select('id, paid_by_user_id')
+      .select('id, paid_by_user_id, group_id')
       .eq('id', params.id)
       .single();
 
@@ -28,19 +44,23 @@ export async function PUT(
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 });
     }
 
-    if (existingExpense.paid_by_user_id !== paidByUserId) {
+    const memberIds = await loadExpenseSetMemberIds(supabase, existingExpense.group_id);
+
+    try {
+      ensureExpenseSetMember(paidByUserId, memberIds, 'edit expenses');
+      ensureActorCanMutateExpense(existingExpense, paidByUserId, 'edit');
+    } catch (error: any) {
       return NextResponse.json(
-        { error: 'Only the expense owner can edit this expense' },
+        { error: error.message },
         { status: 403 }
       );
     }
 
-    const splitTotal = splits.reduce((sum: number, split: any) => sum + Number(split.amount || 0), 0);
-    if (Math.abs(splitTotal - Number(amount)) > 0.01) {
-      return NextResponse.json(
-        { error: 'Split total must equal expense amount' },
-        { status: 400 }
-      );
+    try {
+      validateSplitTotal(splits, Number(amount));
+      validateSplitParticipants(splits, memberIds);
+    } catch (error: any) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
     const { error: expenseUpdateError } = await supabase
@@ -100,7 +120,7 @@ export async function DELETE(
 
     const { data: existingExpense, error: existingExpenseError } = await supabase
       .from('expenses')
-      .select('id, paid_by_user_id')
+      .select('id, paid_by_user_id, group_id')
       .eq('id', params.id)
       .single();
 
@@ -108,9 +128,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 });
     }
 
-    if (existingExpense.paid_by_user_id !== paidByUserId) {
+    const memberIds = await loadExpenseSetMemberIds(supabase, existingExpense.group_id);
+
+    try {
+      ensureExpenseSetMember(paidByUserId, memberIds, 'delete expenses');
+      ensureActorCanMutateExpense(existingExpense, paidByUserId, 'delete');
+    } catch (error: any) {
       return NextResponse.json(
-        { error: 'Only the expense owner can delete this expense' },
+        { error: error.message },
         { status: 403 }
       );
     }
