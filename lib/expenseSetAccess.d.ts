@@ -29,6 +29,18 @@ export function ensureExpenseSetMember(
   action: string
 ): void;
 
+export function validateSettlementParticipants(
+  fromUserId: string,
+  toUserId: string,
+  memberIds: string[]
+): void;
+
+export function ensureSettlementActorCanRecord(
+  actorUserId: string,
+  fromUserId: string,
+  toUserId: string
+): void;
+
 export function ensureActorCanMutateExpense(
   expense: MutableExpense,
   actorUserId: string,

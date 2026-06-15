@@ -10,6 +10,8 @@
 - ✅ Protected routes (redirects to login if not authenticated)
 
 ### Expense Tracking
+- Predefined trip categories: VRBO/Airbnb, food, groceries, fuel, miscellaneous
+
 - ✅ Add new expenses
 - ✅ Enter description, amount, and payer
 - ✅ Select participants for expense
@@ -108,7 +110,8 @@
 - 📸 Tax reporting
 
 ### Expense Categories
-- 📂 Pre-defined categories (food, travel, entertainment, etc.)
+Predefined trip categories are implemented in the MVP. The remaining category work is:
+
 - 📂 Custom categories
 - 📂 Category-based filtering
 - 📂 Category spending limits

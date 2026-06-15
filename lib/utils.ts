@@ -1,3 +1,5 @@
+import { calculateSettlements as calculateSettlementsFromPayments } from './settlementCalculations';
+
 /**
  * Calculate splits for an expense
  */
@@ -31,83 +33,7 @@ export function calculateCustomSplits(
   return result;
 }
 
-/**
- * Calculate who owes whom
- */
-export function calculateSettlements(
-  expenses: any[],
-  splits: any[]
-): Record<string, Record<string, number>> {
-  const balances: Record<string, number> = {};
-
-  // Initialize balances
-  const allUsers = new Set<string>();
-  expenses.forEach((exp) => {
-    allUsers.add(exp.paid_by_user_id);
-  });
-  splits.forEach((split) => {
-    allUsers.add(split.user_id);
-  });
-  allUsers.forEach((userId) => {
-    balances[userId] = 0;
-  });
-
-  // Calculate balances (positive = owed money, negative = owes money)
-  expenses.forEach((expense) => {
-    balances[expense.paid_by_user_id] += expense.amount;
-  });
-
-  splits.forEach((split) => {
-    balances[split.user_id] -= split.amount;
-  });
-
-  // Simplify settlements
-  return simplifySettlements(balances);
-}
-
-/**
- * Simplify settlements using greedy algorithm
- */
-function simplifySettlements(
-  balances: Record<string, number>
-): Record<string, Record<string, number>> {
-  const settlements: Record<string, Record<string, number>> = {};
-
-  const debtors: Array<[string, number]> = [];
-  const creditors: Array<[string, number]> = [];
-
-  Object.entries(balances).forEach(([userId, balance]) => {
-    if (balance < -0.01) {
-      debtors.push([userId, -balance]);
-    } else if (balance > 0.01) {
-      creditors.push([userId, balance]);
-    }
-  });
-
-  debtors.forEach(([debtorId]) => {
-    if (!settlements[debtorId]) {
-      settlements[debtorId] = {};
-    }
-  });
-
-  let i = 0,
-    j = 0;
-  while (i < debtors.length && j < creditors.length) {
-    const [debtorId, debtAmount] = debtors[i];
-    const [creditorId, credAmount] = creditors[j];
-
-    const settlement = Math.min(debtAmount, credAmount);
-    settlements[debtorId][creditorId] = Number(settlement.toFixed(2));
-
-    debtors[i][1] -= settlement;
-    creditors[j][1] -= settlement;
-
-    if (Math.abs(debtors[i][1]) < 0.01) i++;
-    if (Math.abs(creditors[j][1]) < 0.01) j++;
-  }
-
-  return settlements;
-}
+export const calculateSettlements = calculateSettlementsFromPayments;
 
 /**
  * Format currency

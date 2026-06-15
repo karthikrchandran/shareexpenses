@@ -12,30 +12,41 @@ import {
 interface SettlementSummaryProps {
   expenses: any[];
   currentUserId: string;
+  expenseSetId: string;
 }
 
 type SettlementRow = { from: string; to: string; amount: number };
+type SettledPayment = {
+  id?: string;
+  from_user_id: string;
+  to_user_id: string;
+  amount: number;
+  settled: boolean;
+  settled_at?: string;
+  payment_method?: string;
+  venmo_transaction_id?: string;
+};
 
 export default function SettlementSummary({
   expenses,
   currentUserId,
+  expenseSetId,
 }: SettlementSummaryProps) {
   const [splits, setSplits] = useState<any[]>([]);
   const [usersById, setUsersById] = useState<Record<string, string>>({});
+  const [settledPayments, setSettledPayments] = useState<SettledPayment[]>([]);
   const [settlingKey, setSettlingKey] = useState<string | null>(null);
   const [activePaymentKey, setActivePaymentKey] = useState<string | null>(null);
-  const [settledOutsideAppKeys, setSettledOutsideAppKeys] = useState<Set<string>>(
-    () => new Set()
-  );
   const [statusMessage, setStatusMessage] = useState<string>('');
   const venmoConfigured = process.env.NEXT_PUBLIC_VENMO_ENABLED === 'true';
   const paymentMethods = getSettlementPaymentMethods({ venmoConfigured });
 
   useEffect(() => {
     const loadSettlementData = async () => {
-      if (expenses.length === 0) {
+      if (!currentUserId || !expenseSetId || expenses.length === 0) {
         setSplits([]);
         setUsersById({});
+        setSettledPayments([]);
         return;
       }
 
@@ -67,10 +78,22 @@ export default function SettlementSummary({
         return acc;
       }, {});
       setUsersById(mappedUsers);
+
+      const settlementsResponse = await fetch(
+        `/api/settlements?userId=${encodeURIComponent(currentUserId)}&groupId=${encodeURIComponent(expenseSetId)}`
+      );
+      const settlementsPayload = await settlementsResponse.json();
+      if (!settlementsResponse.ok) {
+        throw new Error(settlementsPayload?.error || 'Failed to load settlements');
+      }
+
+      setSettledPayments(settlementsPayload || []);
     };
 
-    loadSettlementData();
-  }, [expenses]);
+    loadSettlementData().catch((error) => {
+      console.error('Failed to load settlement data:', error);
+    });
+  }, [currentUserId, expenseSetId, expenses]);
 
   // Calculate total and current user's balance
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
@@ -81,7 +104,7 @@ export default function SettlementSummary({
     .reduce((sum, exp) => sum + exp.amount, 0);
 
   const settlementRows = useMemo(() => {
-    const matrix = calculateSettlements(expenses, splits);
+    const matrix = calculateSettlements(expenses, splits, settledPayments);
     const rows: SettlementRow[] = [];
 
     Object.entries(matrix).forEach(([fromUserId, creditors]) => {
@@ -95,7 +118,7 @@ export default function SettlementSummary({
     });
 
     return rows;
-  }, [expenses, splits]);
+  }, [expenses, splits, settledPayments]);
 
   const youOwe = settlementRows.filter((row) => row.from === currentUserId);
   const owedToYou = settlementRows.filter((row) => row.to === currentUserId);
@@ -116,20 +139,55 @@ export default function SettlementSummary({
     setActivePaymentKey((currentKey) => (currentKey === key ? null : key));
   };
 
-  const handleOutsideAppSettlement = (row: SettlementRow) => {
-    const key = getSettlementKey(row);
-    setSettledOutsideAppKeys((currentKeys) => {
-      const nextKeys = new Set(currentKeys);
-      nextKeys.add(key);
-      return nextKeys;
-    });
-    setActivePaymentKey(null);
-    setStatusMessage(
-      buildOutsideAppSettlementMessage({
-        recipientName: getCounterpartyName(row),
+  const recordSettlement = async (
+    row: SettlementRow,
+    paymentMethod: 'outside-app' | 'venmo',
+    venmoTransactionId?: string
+  ) => {
+    const response = await fetch('/api/settlements', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        actor_user_id: currentUserId,
+        from_user_id: row.from,
+        to_user_id: row.to,
+        group_id: expenseSetId,
         amount: row.amount,
-      })
-    );
+        payment_method: paymentMethod,
+        venmo_transaction_id: venmoTransactionId,
+      }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Failed to record settlement');
+    }
+
+    setSettledPayments((currentPayments) => [...currentPayments, payload]);
+    return payload as SettledPayment;
+  };
+
+  const handleOutsideAppSettlement = async (row: SettlementRow) => {
+    const key = getSettlementKey(row);
+    setSettlingKey(key);
+    setActivePaymentKey(null);
+    setStatusMessage('');
+
+    try {
+      await recordSettlement(row, 'outside-app');
+      setStatusMessage(
+        buildOutsideAppSettlementMessage({
+          recipientName: getCounterpartyName(row),
+          amount: row.amount,
+        })
+      );
+    } catch (error: any) {
+      setStatusMessage(error?.message || 'Failed to record settlement');
+    } finally {
+      setSettlingKey(null);
+    }
   };
 
   const handleVenmoSettlement = async (row: SettlementRow) => {
@@ -156,7 +214,8 @@ export default function SettlementSummary({
         throw new Error(payload?.error || 'Failed to settle with Venmo');
       }
 
-      setStatusMessage('Venmo payment initiated successfully.');
+      await recordSettlement(row, 'venmo', payload?.venmoTransactionId);
+      setStatusMessage('Venmo payment recorded successfully.');
     } catch (error: any) {
       setStatusMessage(error?.message || 'Failed to settle with Venmo');
     } finally {
@@ -177,13 +236,6 @@ export default function SettlementSummary({
     const key = getSettlementKey(row);
     const isSettling = settlingKey === key;
     const isSelectingPayment = activePaymentKey === key;
-    const isSettledOutsideApp = settledOutsideAppKeys.has(key);
-
-    if (isSettledOutsideApp) {
-      return (
-        <p className="text-xs text-gray-600 mt-1">Settled outside app</p>
-      );
-    }
 
     return (
       <div className="relative mt-1">

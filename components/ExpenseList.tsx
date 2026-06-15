@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { getExpenseCategoryLabel } from '@/lib/expenseCategories';
 import { Edit2, Trash2 } from 'lucide-react';
 
 interface ExpenseListProps {
@@ -49,7 +50,12 @@ export default function ExpenseList({ expenses, onRefresh, currentUserId, onEdit
           className="p-4 hover:bg-gray-50 transition flex justify-between items-start"
         >
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900">{expense.description}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-semibold text-gray-900">{expense.description}</h3>
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                {getExpenseCategoryLabel(expense.category)}
+              </span>
+            </div>
             <p className="text-sm text-gray-500 mt-1">
               Paid by {expense.paid_by_user?.name} • {formatDate(expense.created_at)}
             </p>

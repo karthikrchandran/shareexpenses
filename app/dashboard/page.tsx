@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth, logout } from '@/lib/useAuth';
 import { Plus, LogOut, DollarSign, UserPlus } from 'lucide-react';
 import AddExpenseModal from '@/components/AddExpenseModal';
@@ -30,24 +30,7 @@ export default function Dashboard() {
     [expenseSets, selectedExpenseSetId]
   );
 
-  useEffect(() => {
-    if (user?.id) {
-      loadExpenseSets();
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (user?.id && selectedExpenseSetId) {
-      loadMembers();
-      loadExpenses();
-      return;
-    }
-
-    setMembers([]);
-    setExpenses([]);
-  }, [user?.id, selectedExpenseSetId]);
-
-  const loadExpenseSets = async (preferredExpenseSetId?: string) => {
+  const loadExpenseSets = useCallback(async (preferredExpenseSetId?: string) => {
     if (!user?.id) return;
 
     setExpenseSetsLoading(true);
@@ -72,9 +55,9 @@ export default function Dashboard() {
     } finally {
       setExpenseSetsLoading(false);
     }
-  };
+  }, [user?.id]);
 
-  const loadMembers = async () => {
+  const loadMembers = useCallback(async () => {
     if (!user?.id || !selectedExpenseSetId) return;
 
     setMembersLoading(true);
@@ -94,9 +77,9 @@ export default function Dashboard() {
     } finally {
       setMembersLoading(false);
     }
-  };
+  }, [selectedExpenseSetId, user?.id]);
 
-  const loadExpenses = async () => {
+  const loadExpenses = useCallback(async () => {
     if (!user?.id || !selectedExpenseSetId) return;
 
     setExpensesLoading(true);
@@ -116,7 +99,24 @@ export default function Dashboard() {
     } finally {
       setExpensesLoading(false);
     }
-  };
+  }, [selectedExpenseSetId, user?.id]);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadExpenseSets();
+    }
+  }, [loadExpenseSets, user?.id]);
+
+  useEffect(() => {
+    if (user?.id && selectedExpenseSetId) {
+      loadMembers();
+      loadExpenses();
+      return;
+    }
+
+    setMembers([]);
+    setExpenses([]);
+  }, [loadExpenses, loadMembers, selectedExpenseSetId, user?.id]);
 
   const handleExpenseAdded = () => {
     loadExpenses();
@@ -291,7 +291,11 @@ export default function Dashboard() {
               </div>
 
               <div className="md:col-span-1">
-                <SettlementSummary expenses={expenses} currentUserId={user?.id || ''} />
+                <SettlementSummary
+                  expenses={expenses}
+                  currentUserId={user?.id || ''}
+                  expenseSetId={selectedExpenseSetId}
+                />
               </div>
             </div>
           </>

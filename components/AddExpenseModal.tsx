@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { X, AlertCircle } from 'lucide-react';
 import { ExpenseSetMember } from '@/lib/types';
+import { DEFAULT_EXPENSE_CATEGORY, EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
+import type { ExpenseCategoryValue } from '@/lib/expenseCategories';
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -26,6 +28,7 @@ export default function AddExpenseModal({
 }: AddExpenseModalProps) {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState<ExpenseCategoryValue>(DEFAULT_EXPENSE_CATEGORY);
   const [splitType, setSplitType] = useState<'even' | 'custom' | 'shares'>('even');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([currentUserId]);
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
@@ -40,6 +43,7 @@ export default function AddExpenseModal({
       if (!existingExpense) {
         setDescription('');
         setAmount('');
+        setCategory(DEFAULT_EXPENSE_CATEGORY);
         setSplitType('even');
         setSelectedUsers([currentUserId]);
         setCustomAmounts({});
@@ -49,6 +53,7 @@ export default function AddExpenseModal({
 
       setDescription(existingExpense.description || '');
       setAmount(String(existingExpense.amount || ''));
+      setCategory((existingExpense.category || DEFAULT_EXPENSE_CATEGORY) as ExpenseCategoryValue);
 
       const { data: existingSplits, error: splitError } = await supabase
         .from('expense_splits')
@@ -283,6 +288,7 @@ export default function AddExpenseModal({
             paidByUserId: currentUserId,
             description,
             amount: amountNum,
+            category,
             splits,
           }),
         });
@@ -300,6 +306,7 @@ export default function AddExpenseModal({
           body: JSON.stringify({
             description,
             amount: amountNum,
+            category,
             paid_by_user_id: currentUserId,
             group_id: expenseSetId,
             splits,
@@ -315,6 +322,7 @@ export default function AddExpenseModal({
       onExpenseAdded();
       setDescription('');
       setAmount('');
+      setCategory(DEFAULT_EXPENSE_CATEGORY);
       setSplitType('even');
       setSelectedUsers([currentUserId]);
       setCustomAmounts({});
@@ -379,6 +387,23 @@ export default function AddExpenseModal({
               className="input-field"
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Category
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as ExpenseCategoryValue)}
+              className="input-field"
+            >
+              {EXPENSE_CATEGORIES.map((expenseCategory) => (
+                <option key={expenseCategory.value} value={expenseCategory.value}>
+                  {expenseCategory.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

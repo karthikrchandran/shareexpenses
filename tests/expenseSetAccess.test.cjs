@@ -3,7 +3,9 @@ const test = require('node:test');
 
 const {
   ensureActorCanMutateExpense,
+  ensureSettlementActorCanRecord,
   ensureExpenseSetMember,
+  validateSettlementParticipants,
   validateExpenseSetId,
   validateSplitTotal,
   validateSplitParticipants,
@@ -72,5 +74,30 @@ test('requires split totals to match the expense amount', () => {
         20
       ),
     /Split total must equal expense amount/
+  );
+});
+
+test('requires settlement participants to belong to the Expense Set', () => {
+  assert.doesNotThrow(() =>
+    validateSettlementParticipants('bob', 'alice', ['alice', 'bob'])
+  );
+
+  assert.throws(
+    () => validateSettlementParticipants('mallory', 'alice', ['alice', 'bob']),
+    /Settlement participants must be members of this Expense Set/
+  );
+});
+
+test('allows only settlement parties to record a settlement', () => {
+  assert.doesNotThrow(() =>
+    ensureSettlementActorCanRecord('bob', 'bob', 'alice')
+  );
+  assert.doesNotThrow(() =>
+    ensureSettlementActorCanRecord('alice', 'bob', 'alice')
+  );
+
+  assert.throws(
+    () => ensureSettlementActorCanRecord('chris', 'bob', 'alice'),
+    /Only settlement participants can record this settlement/
   );
 });

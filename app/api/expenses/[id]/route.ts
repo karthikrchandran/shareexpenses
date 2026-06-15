@@ -6,6 +6,7 @@ import {
   validateSplitParticipants,
   validateSplitTotal,
 } from '@/lib/expenseSetAccess';
+import { normalizeExpenseCategory } from '@/lib/expenseCategories';
 
 async function loadExpenseSetMemberIds(supabase: any, expenseSetId: string) {
   const { data, error } = await supabase
@@ -25,7 +26,7 @@ export async function PUT(
     const supabase = createServiceRoleClient();
     const body = await request.json();
 
-    const { paidByUserId, description, amount, splits } = body;
+    const { paidByUserId, description, amount, splits, category } = body;
 
     if (!paidByUserId || !description || !amount || !Array.isArray(splits)) {
       return NextResponse.json(
@@ -56,7 +57,9 @@ export async function PUT(
       );
     }
 
+    let expenseCategory: string;
     try {
+      expenseCategory = normalizeExpenseCategory(category);
       validateSplitTotal(splits, Number(amount));
       validateSplitParticipants(splits, memberIds);
     } catch (error: any) {
@@ -68,6 +71,7 @@ export async function PUT(
       .update({
         description,
         amount,
+        category: expenseCategory,
         updated_at: new Date().toISOString(),
       })
       .eq('id', params.id);

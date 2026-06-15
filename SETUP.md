@@ -76,6 +76,8 @@ CREATE TABLE IF NOT EXISTS expenses (
   group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   description TEXT NOT NULL,
   amount DECIMAL(10, 2) NOT NULL CHECK (amount > 0),
+  category TEXT NOT NULL DEFAULT 'miscellaneous'
+    CHECK (category IN ('lodging', 'food', 'groceries', 'fuel', 'miscellaneous')),
   paid_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -96,11 +98,13 @@ CREATE TABLE IF NOT EXISTS expense_splits (
 -- Create settlements table
 CREATE TABLE IF NOT EXISTS settlements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   from_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   to_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   amount DECIMAL(10, 2) NOT NULL CHECK (amount > 0),
   settled BOOLEAN DEFAULT FALSE,
   settled_at TIMESTAMP,
+  payment_method TEXT NOT NULL DEFAULT 'outside-app',
   venmo_transaction_id TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -228,15 +232,55 @@ CREATE POLICY "Members can insert Expense Set splits" ON expense_splits
     )
   );
 
+-- RLS Policies for settlements
+CREATE POLICY "Members can read Expense Set settlements" ON settlements
+  FOR SELECT USING (public.is_group_member(group_id));
+
+CREATE POLICY "Settlement parties can insert Expense Set settlements" ON settlements
+  FOR INSERT WITH CHECK (
+    public.is_group_member(group_id)
+    AND public.is_group_member_user(group_id, from_user_id)
+    AND public.is_group_member_user(group_id, to_user_id)
+    AND auth.uid() IN (from_user_id, to_user_id)
+  );
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_group ON expenses(group_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_group_category ON expenses(group_id, category);
 CREATE INDEX IF NOT EXISTS idx_expenses_paid_by ON expenses(paid_by_user_id);
 CREATE INDEX IF NOT EXISTS idx_expense_splits_expense ON expense_splits(expense_id);
 CREATE INDEX IF NOT EXISTS idx_expense_splits_user ON expense_splits(user_id);
+CREATE INDEX IF NOT EXISTS idx_settlements_group ON settlements(group_id);
 CREATE INDEX IF NOT EXISTS idx_settlements_from_user ON settlements(from_user_id);
 CREATE INDEX IF NOT EXISTS idx_settlements_to_user ON settlements(to_user_id);
+```
+
+#### Existing Project Upgrade SQL
+
+If your Supabase project already has the Phase 1 Expense Set tables, run this before testing categories:
+
+```sql
+ALTER TABLE expenses
+ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'miscellaneous';
+
+ALTER TABLE expenses
+DROP CONSTRAINT IF EXISTS expenses_category_check;
+
+ALTER TABLE expenses
+ADD CONSTRAINT expenses_category_check
+CHECK (category IN ('lodging', 'food', 'groceries', 'fuel', 'miscellaneous'));
+
+CREATE INDEX IF NOT EXISTS idx_expenses_group_category ON expenses(group_id, category);
+
+ALTER TABLE settlements
+ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES groups(id) ON DELETE CASCADE;
+
+ALTER TABLE settlements
+ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'outside-app';
+
+CREATE INDEX IF NOT EXISTS idx_settlements_group ON settlements(group_id);
 ```
 
 ### Phase 4: Setup Auth Trigger (2 minutes)
@@ -284,7 +328,8 @@ Visit http://localhost:3200 in your browser!
 2. **As Alice:**
    - Create an Expense Set named "Dinner Test"
    - Add Bob as a member
-   - Add expense "Dinner" for $100 split with Bob
+   - Add expense "Dinner" for $100 with category "Food", split with Bob
+   - Add expense "VRBO deposit" with category "VRBO / Airbnb" and split type "Shares Split" if the lodging split is ratio-based
 
 3. **As Bob:**
    - See the "Dinner Test" Expense Set

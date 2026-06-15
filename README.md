@@ -4,6 +4,8 @@ A modern app where friends can easily track shared expenses and settle up using 
 
 ## Features
 
+- **Trip Categories** - Pick VRBO/Airbnb, food, groceries, fuel, or miscellaneous for each expense
+
 ✅ **User Authentication** - Sign up and login with email/password via Supabase  
 ✅ **Add Expenses** - Log expenses with flexible descriptions and amounts  
 ✅ **Expense Sets** - Organize expenses by trip, event, month, or household
@@ -107,12 +109,18 @@ shareexpenses/
 2. Click "Add Expense" button
 3. Enter description (e.g., "Dinner at Joe's")
 4. Enter amount
-5. Select split type:
+5. Select a category:
+   - **VRBO / Airbnb**: Trip lodging and rental costs
+   - **Food**: Restaurants, takeout, snacks, and shared meals
+   - **Groceries**: Grocery runs and shared supplies
+   - **Fuel**: Gas, charging, tolls, parking, and driving costs
+   - **Miscellaneous**: Everything else
+6. Select split type:
    - **Even**: Everyone pays equal share
    - **Custom**: Define specific amounts per person
    - **Shares**: Split by proportional shares
-6. Select which Expense Set members are included
-7. Click "Add Expense"
+7. Select which Expense Set members are included
+8. Click "Add Expense"
 
 ### Settlement Tracking
 
@@ -120,13 +128,15 @@ The app automatically calculates:
 - Who paid what
 - Who owes whom
 - Settlement amounts
+- Settled outside-app or Venmo payments
 
-View settlements in the right sidebar of the dashboard.
+View settlements in the right sidebar of the dashboard. Once a payment is recorded, the balance is recalculated and the remaining amount is removed.
 
-### Venmo Payment
+### Settle Up
 
-1. From settlements list, click "Pay with Venmo"
-2. Choose payment method
+1. From the settlements list, click "Settle Up"
+2. Choose "Cash / outside app" or Venmo when configured
+3. The settlement is recorded and balances are recalculated
 3. Confirm payment
 4. Settlement marked as complete
 

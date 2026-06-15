@@ -1,3 +1,5 @@
+import type { ExpenseCategoryValue } from './expenseCategories';
+
 // Database Types
 export interface User {
   id: string;
@@ -14,6 +16,7 @@ export interface Expense {
   group_id?: string;
   description: string;
   amount: number;
+  category?: ExpenseCategoryValue;
   paid_by_user_id: string;
   paid_by_user?: User;
   created_at: string;
@@ -32,6 +35,7 @@ export interface ExpenseSplit {
 
 export interface Settlement {
   id: string;
+  group_id: string;
   from_user_id: string;
   to_user_id: string;
   from_user?: User;
@@ -39,6 +43,7 @@ export interface Settlement {
   amount: number;
   settled: boolean;
   settled_at?: string;
+  payment_method?: 'outside-app' | 'venmo';
   venmo_transaction_id?: string;
   created_at: string;
 }
