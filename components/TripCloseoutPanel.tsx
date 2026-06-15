@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink, Sparkles } from 'lucide-react';
-import TripCloseoutView from '@/components/TripCloseoutView';
+import { formatCurrency } from '@/lib/utils';
 
 interface TripCloseoutPanelProps {
   currentUserId: string;
@@ -103,18 +103,33 @@ export default function TripCloseoutPanel({
       ) : loading ? (
         <p className="text-sm text-gray-500">Loading latest closeout...</p>
       ) : closeout ? (
-        <>
-          <TripCloseoutView closeout={closeout} compact />
-          <div className="mt-4">
-            <Link
-              href={`/closeouts/${closeout.id}`}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
-            >
-              View shareable closeout page
-              <ExternalLink size={14} />
-            </Link>
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-emerald-900">Closeout ready</p>
+              <p className="mt-1 text-xs text-emerald-800">
+                {formatCurrency(closeout.summary_json.totalAmount)} across{' '}
+                {closeout.summary_json.expenseCount} expense
+                {closeout.summary_json.expenseCount === 1 ? '' : 's'}
+              </p>
+              {closeout.created_at && (
+                <p className="mt-1 text-xs text-emerald-700">
+                  Generated {new Date(closeout.created_at).toLocaleString()}
+                </p>
+              )}
+            </div>
+            <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-emerald-800">
+              {closeout.ai_generated ? 'AI polished' : 'Saved'}
+            </span>
           </div>
-        </>
+          <Link
+            href={`/closeouts/${closeout.id}`}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+          >
+            Open visual closeout
+            <ExternalLink size={14} />
+          </Link>
+        </div>
       ) : (
         <p className="text-sm text-gray-500">
           No saved closeout yet. Generate one when the trip ledger is ready.
