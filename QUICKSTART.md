@@ -6,7 +6,7 @@ You now have a complete **expense-sharing web app** with:
 - ✅ User authentication (signup/login)
 - ✅ Expense tracking with flexible splits
 - ✅ Automatic settlement calculations
-- ✅ Venmo payment integration template
+- ✅ Payment status tracking for cash, Venmo, Cash App, or another outside app
 - ✅ Modern, responsive UI
 
 ## 5-Minute Quick Start
@@ -72,10 +72,10 @@ Visit http://localhost:3200
 - Simplifies settlements to minimize transfers
 - Shows balances per person
 
-### 💳 Venmo Integration
-- Template for Venmo payments
-- Mark settlements as paid
-- Transaction tracking
+### 💳 Payment Handoff
+- Record settlements made outside ShareExpenses
+- Mark settlements as pending, paid, or confirmed
+- Track cash, Venmo, Cash App, or another outside app
 
 ## Common Tasks
 
@@ -117,7 +117,6 @@ shareexpenses/
 │   └── page.tsx           # Home page
 ├── lib/                   # Utilities
 │   ├── supabase.ts       # Database client
-│   ├── venmo.ts          # Payment client
 │   └── utils.ts          # Calculations
 ├── components/           # React components
 └── public/              # Static files
@@ -156,7 +155,7 @@ shareexpenses/
 | Auth | Supabase Auth |
 | Icons | Lucide React |
 | Deployment | Vercel |
-| Payments | Venmo API |
+| Payments | Outside-app settlement tracking |
 
 ## Checklist
 

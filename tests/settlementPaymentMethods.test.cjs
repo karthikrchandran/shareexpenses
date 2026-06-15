@@ -3,12 +3,13 @@ const test = require('node:test');
 
 const {
   getSettlementPaymentMethods,
+  buildPaymentHandoffMessage,
   buildOutsideAppSettlementMessage,
   normalizeSettlementStatus,
 } = require('../lib/settlementPaymentMethods.js');
 
-test('cash outside app is available before Venmo is configured', () => {
-  const methods = getSettlementPaymentMethods({ venmoConfigured: false });
+test('friend payment handoff methods are available without provider credentials', () => {
+  const methods = getSettlementPaymentMethods();
 
   assert.deepEqual(
     methods.map((method) => ({
@@ -25,9 +26,26 @@ test('cash outside app is available before Venmo is configured', () => {
       {
         id: 'venmo',
         label: 'Venmo',
-        disabled: true,
+        disabled: false,
+      },
+      {
+        id: 'cash-app',
+        label: 'Cash App',
+        disabled: false,
       },
     ]
+  );
+});
+
+test('payment handoff message is clear that payment happened outside the app', () => {
+  assert.equal(
+    buildPaymentHandoffMessage({
+      methodLabel: 'Venmo',
+      recipientName: 'Alice',
+      amount: 12.5,
+      paymentStatus: 'pending',
+    }),
+    'Marked $12.50 as pending via Venmo with Alice. Complete or confirm the payment outside ShareExpenses.'
   );
 });
 

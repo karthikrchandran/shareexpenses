@@ -33,10 +33,11 @@
 - ✅ Dashboard summary view
 - ✅ Balance display
 
-### Venmo Integration
-- ✅ Venmo payment API client
-- ✅ Settlement via Venmo endpoints
-- ✅ Transaction tracking (basic)
+### Payment Handoff
+- ✅ Cash / outside app settlement recording
+- ✅ Venmo settlement recording
+- ✅ Cash App settlement recording
+- ✅ Pending, paid, and confirmed payment statuses
 
 ### UI/UX
 - ✅ Responsive design (mobile, tablet, desktop)
@@ -68,11 +69,10 @@
 - 🔄 Per-person statistics
 - 🔄 Export to CSV/PDF
 
-### Payment Integration
-- 🔄 Multiple payment methods (Venmo, PayPal, CashApp, etc.)
-- 🔄 Payment links via QR codes
+### Payment Experience
+- 🔄 Payment links or QR codes
 - 🔄 Payment reminders/notifications
-- 🔄 Scheduled automatic payments
+- 🔄 Payment confirmation workflow
 
 ### Notifications
 - 🔄 Email notifications for new expenses
@@ -160,7 +160,7 @@ Predefined trip categories are implemented in the MVP. The remaining category wo
 
 ## Known Limitations
 
-1. **Venmo Integration**: Currently basic implementation, requires proper OAuth 2.0 for production
+1. **Money movement**: Payments happen outside ShareExpenses and are recorded manually
 2. **Expense Set invitations**: Only existing registered users can be added for now
 3. **Member removal**: Expense Set members cannot be removed yet
 4. **Notifications**: Not yet implemented
@@ -222,7 +222,7 @@ Predefined trip categories are implemented in the MVP. The remaining category wo
 - Even split calculations
 - Settlement tracking
 - Responsive UI
-- Venmo integration template
+- Friend payment handoff tracking
 
 ## Contributing
 

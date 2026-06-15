@@ -31,7 +31,7 @@ export default function Home() {
           Split Expenses with Friends
         </h1>
         <p className="text-xl md:text-2xl mb-8 opacity-90 max-w-2xl mx-auto">
-          Track who paid what, calculate fair splits, and settle up with Venmo.
+          Track who paid what, calculate fair splits, and record friend payments.
           No more confusion about shared expenses.
         </p>
         <Link href="/signup" className="inline-block btn-primary text-lg px-8 py-3">
@@ -78,9 +78,9 @@ export default function Home() {
               <div className="flex justify-center mb-4">
                 <Zap size={40} className="text-primary" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Venmo Integration</h3>
+              <h3 className="text-xl font-semibold mb-2">Payment Tracking</h3>
               <p className="text-gray-600">
-                Settle payments directly through Venmo
+                Record cash, Venmo, or Cash App settlements
               </p>
             </div>
           </div>

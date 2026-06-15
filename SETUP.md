@@ -118,7 +118,6 @@ CREATE TABLE IF NOT EXISTS settlements (
   payment_method TEXT NOT NULL DEFAULT 'outside-app',
   payment_status TEXT NOT NULL DEFAULT 'paid'
     CHECK (payment_status IN ('pending', 'paid', 'confirmed')),
-  venmo_transaction_id TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -508,7 +507,6 @@ Visit http://localhost:3200 in your browser!
      - `NEXT_PUBLIC_APP_URL`
      - `API_RATE_LIMIT_REQUESTS` (optional, default `120`)
      - `API_RATE_LIMIT_WINDOW_MS` (optional, default `60000`)
-     - `VENMO_ACCESS_TOKEN` (if using)
    - Click Deploy!
 
 3. **Your app is live!** 🎉
@@ -522,32 +520,9 @@ For repeatable Supabase upgrades, run migrations in order from `supabase/migrati
 
 The one-shot upgrade SQL in `docs/superpowers/plans/2026-06-15-closeout-db-upgrade.sql` remains available for manual Supabase SQL Editor runs.
 
-## Venmo Integration Setup (Optional)
+## Friend Payment Handoff
 
-### Get Venmo Credentials
-
-1. Go to https://developer.venmo.com
-2. Register for API access
-3. Create an app
-4. Get your credentials:
-   - App ID
-   - Client Secret
-   - Access Token (user's token)
-
-5. Add to `.env.local`:
-   ```
-   VENMO_APP_ID=your_app_id
-   VENMO_CLIENT_SECRET=your_secret
-   VENMO_ACCESS_TOKEN=your_access_token
-   ```
-
-### Note on Venmo Integration
-
-The current implementation is a template. For production:
-- Implement OAuth 2.0 flow for user authentication
-- Store encrypted tokens in database
-- Use Venmo's official SDK
-- Implement proper error handling
+ShareExpenses does not process money or require payment-provider credentials. Members settle outside the app with cash, Venmo, Cash App, or another preferred method, then record the settlement status in the dashboard.
 
 ## Troubleshooting
 

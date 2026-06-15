@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { calculateSettlements, formatCurrency } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import {
+  buildPaymentHandoffMessage,
   buildOutsideAppSettlementMessage,
   getSettlementPaymentMethods,
   type SettlementPaymentMethodId,
@@ -26,7 +27,6 @@ type SettledPayment = {
   settled_at?: string;
   payment_method?: string;
   payment_status?: 'pending' | 'paid' | 'confirmed';
-  venmo_transaction_id?: string;
 };
 
 export default function SettlementSummary({
@@ -42,8 +42,7 @@ export default function SettlementSummary({
   const [activePaymentKey, setActivePaymentKey] = useState<string | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<Record<string, 'pending' | 'paid' | 'confirmed'>>({});
   const [statusMessage, setStatusMessage] = useState<string>('');
-  const venmoConfigured = process.env.NEXT_PUBLIC_VENMO_ENABLED === 'true';
-  const paymentMethods = getSettlementPaymentMethods({ venmoConfigured });
+  const paymentMethods = getSettlementPaymentMethods();
 
   useEffect(() => {
     const loadSettlementData = async () => {
@@ -149,9 +148,8 @@ export default function SettlementSummary({
 
   const recordSettlement = async (
     row: SettlementRow,
-    paymentMethod: 'outside-app' | 'venmo',
-    paymentStatus: 'pending' | 'paid' | 'confirmed',
-    venmoTransactionId?: string
+    paymentMethod: SettlementPaymentMethodId,
+    paymentStatus: 'pending' | 'paid' | 'confirmed'
   ) => {
     const response = await fetch('/api/settlements', {
       method: 'POST',
@@ -166,7 +164,6 @@ export default function SettlementSummary({
         amount: row.amount,
         payment_method: paymentMethod,
         payment_status: paymentStatus,
-        venmo_transaction_id: venmoTransactionId,
       }),
     });
 
@@ -204,7 +201,10 @@ export default function SettlementSummary({
     }
   };
 
-  const handleVenmoSettlement = async (row: SettlementRow) => {
+  const handlePaymentHandoffSettlement = async (
+    row: SettlementRow,
+    method: { id: SettlementPaymentMethodId; label: string }
+  ) => {
     const key = getSettlementKey(row);
     const paymentStatus = getSelectedStatus(row);
     setSettlingKey(key);
@@ -212,27 +212,17 @@ export default function SettlementSummary({
     setActivePaymentKey(null);
 
     try {
-      const response = await fetch('/api/venmo', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from_user_id: row.from,
-          to_user_id: row.to,
+      await recordSettlement(row, method.id, paymentStatus);
+      setStatusMessage(
+        buildPaymentHandoffMessage({
+          methodLabel: method.label,
+          recipientName: getCounterpartyName(row),
           amount: row.amount,
-        }),
-      });
-
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Failed to settle with Venmo');
-      }
-
-      await recordSettlement(row, 'venmo', paymentStatus, payload?.venmoTransactionId);
-      setStatusMessage('Venmo payment recorded successfully.');
+          paymentStatus,
+        })
+      );
     } catch (error: any) {
-      setStatusMessage(error?.message || 'Failed to settle with Venmo');
+      setStatusMessage(error?.message || `Failed to record ${method.label} settlement`);
     } finally {
       setSettlingKey(null);
     }
@@ -244,7 +234,8 @@ export default function SettlementSummary({
       return;
     }
 
-    handleVenmoSettlement(row);
+    const method = paymentMethods.find((candidate) => candidate.id === methodId);
+    handlePaymentHandoffSettlement(row, method || { id: methodId, label: methodId });
   };
 
   const renderSettlementAction = (row: SettlementRow) => {
@@ -344,7 +335,7 @@ export default function SettlementSummary({
             <li>Add expenses with your friends</li>
             <li>Choose who the expense is split between</li>
             <li>ShareExpenses calculates who owes what</li>
-            <li>Settle up using cash, an outside app, or Venmo later</li>
+            <li>Settle up outside the app, then record the payment status here</li>
           </ol>
         </div>
 

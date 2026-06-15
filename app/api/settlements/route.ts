@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('settlements')
-      .select('id, group_id, from_user_id, to_user_id, amount, settled, settled_at, venmo_transaction_id, payment_method, payment_status, created_at')
+      .select('id, group_id, from_user_id, to_user_id, amount, settled, settled_at, payment_method, payment_status, created_at')
       .eq('group_id', expenseSetId)
       .order('settled_at', { ascending: false });
 
@@ -82,7 +82,6 @@ export async function POST(request: NextRequest) {
       payment_method,
       payment_status,
       to_user_id,
-      venmo_transaction_id,
     } = body;
 
     const rateLimit = checkApiRateLimit(request, actor_user_id);
@@ -122,9 +121,8 @@ export async function POST(request: NextRequest) {
         settled_at: isSettled ? new Date().toISOString() : null,
         payment_method,
         payment_status: normalizedPaymentStatus,
-        venmo_transaction_id: venmo_transaction_id || null,
       })
-      .select('id, group_id, from_user_id, to_user_id, amount, settled, settled_at, venmo_transaction_id, payment_method, payment_status, created_at')
+      .select('id, group_id, from_user_id, to_user_id, amount, settled, settled_at, payment_method, payment_status, created_at')
       .single();
 
     if (error) throw error;

@@ -1,4 +1,4 @@
-export type SettlementPaymentMethodId = 'outside-app' | 'venmo';
+export type SettlementPaymentMethodId = 'outside-app' | 'venmo' | 'cash-app';
 
 export interface SettlementPaymentMethod {
   id: SettlementPaymentMethodId;
@@ -7,9 +7,7 @@ export interface SettlementPaymentMethod {
   disabled: boolean;
 }
 
-export function getSettlementPaymentMethods(options?: {
-  venmoConfigured?: boolean;
-}): SettlementPaymentMethod[];
+export function getSettlementPaymentMethods(): SettlementPaymentMethod[];
 
 export function buildOutsideAppSettlementMessage(input: {
   recipientName: string;
@@ -17,5 +15,12 @@ export function buildOutsideAppSettlementMessage(input: {
 }): string;
 
 export type SettlementStatus = 'pending' | 'paid' | 'confirmed';
+
+export function buildPaymentHandoffMessage(input: {
+  methodLabel: string;
+  recipientName: string;
+  amount: number;
+  paymentStatus: SettlementStatus;
+}): string;
 
 export function normalizeSettlementStatus(status?: unknown): SettlementStatus;

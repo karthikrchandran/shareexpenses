@@ -23,7 +23,7 @@ The implemented phase now supports the core workflow needed for the upcoming tri
 - Restrict expense visibility and write access by Expense Set membership in API validation and documented Supabase RLS.
 - Let only the payer edit or delete their own expense.
 
-For the trip in a few weeks, treat this as a private beta. Friends still need registered accounts, but they can now use a join link instead of being manually added after signup. Invite-by-email, guest users, member removal, offline support, receipt upload, and production Venmo OAuth are still outside the current implementation.
+For the trip in a few weeks, treat this as a private beta. Friends still need registered accounts, but they can now use a join link instead of being manually added after signup. Invite-by-email, guest users, member removal, offline support, receipt upload, and automated payment processing are still outside the current implementation.
 
 ## Phase 1 Plan Check
 
@@ -57,7 +57,7 @@ Source plan: `docs/superpowers/specs/2026-06-15-expense-sets-design.md` and `doc
 - No receipt image upload or OCR itemization.
 - No offline/PWA mode for weak signal during travel.
 - No CSV/PDF export for the final trip ledger.
-- Venmo integration is still a template and needs OAuth, token storage, and payment-state verification before being trusted for production.
+- Payments are outside-app handoffs only. Friends can use cash, Venmo, Cash App, or another app, then record pending, paid, or confirmed status in ShareExpenses.
 - Activity feed exists for key events, but comments and notifications are still out of scope.
 - Repeatable Supabase migration files exist, but automated migration execution is not wired into deployment yet.
 - Basic rate limiting and security headers exist. Production observability, durable distributed rate limiting, and backup drills are still pending.

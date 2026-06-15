@@ -45,9 +45,8 @@ export interface Settlement {
   amount: number;
   settled: boolean;
   settled_at?: string;
-  payment_method?: 'outside-app' | 'venmo';
+  payment_method?: 'outside-app' | 'venmo' | 'cash-app';
   payment_status?: 'pending' | 'paid' | 'confirmed';
-  venmo_transaction_id?: string;
   created_at: string;
 }
 

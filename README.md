@@ -1,6 +1,6 @@
 # ShareExpenses - Expense Sharing App
 
-A modern app where friends can easily track shared expenses and settle up using Venmo.
+A modern app where friends can easily track shared expenses and record payments made through cash, Venmo, Cash App, or another outside app.
 
 ## Features
 
@@ -16,7 +16,7 @@ A modern app where friends can easily track shared expenses and settle up using 
 ✅ **Expense Sets** - Organize expenses by trip, event, month, or household
 ✅ **Smart Splits** - Even splits or custom split amounts  
 ✅ **Settlement Tracking** - Automatic calculation of who owes whom  
-✅ **Venmo Integration** - Settle payments directly through Venmo  
+✅ **Payment Handoff** - Record cash, Venmo, Cash App, or other outside-app settlements
 ✅ **Responsive Design** - Works on desktop, tablet, and mobile  
 
 ## Tech Stack
@@ -36,7 +36,6 @@ A modern app where friends can easily track shared expenses and settle up using 
 - Node.js 18+
 - npm or yarn
 - A Supabase account (free tier available at https://supabase.com)
-- (Optional) Venmo API credentials
 
 ### 2. Clone & Setup
 
@@ -63,13 +62,7 @@ cp .env.example .env.local
 
 In Supabase, go to SQL Editor and run the complete schema from [SETUP.md](SETUP.md). The current schema creates membership-scoped Expense Sets, requires every expense to belong to one set, and includes RLS policies for set members.
 
-### 5. (Optional) Configure Venmo Integration
-
-1. Register for Venmo Developer API access at https://developer.venmo.com
-2. Get your credentials: `VENMO_APP_ID`, `VENMO_CLIENT_SECRET`, `VENMO_ACCESS_TOKEN`
-3. Add them to `.env.local`
-
-### 6. Run Development Server
+### 5. Run Development Server
 
 ```bash
 npm run dev
@@ -86,13 +79,12 @@ shareexpenses/
 │   ├── dashboard/         # Main dashboard
 │   ├── api/               # API routes
 │   │   ├── expenses/      # Expense endpoints
-│   │   └── venmo/         # Venmo integration
+│   │   └── settlements/   # Settlement endpoints
 │   ├── layout.tsx         # Root layout
 │   ├── page.tsx           # Home page
 │   └── globals.css        # Global styles
 ├── lib/                   # Utilities & clients
 │   ├── supabase.ts       # Supabase client
-│   ├── venmo.ts          # Venmo client
 │   ├── types.ts          # TypeScript types
 │   ├── utils.ts          # Helper functions
 │   └── useAuth.ts        # Auth hook
@@ -156,7 +148,7 @@ The app automatically calculates:
 - Who paid what
 - Who owes whom
 - Settlement amounts
-- Settled outside-app or Venmo payments
+- Settled outside-app payments
 
 View settlements in the right sidebar of the dashboard. Paid and confirmed payments reduce balances. Pending payments stay visible without closing the balance.
 
@@ -164,7 +156,7 @@ View settlements in the right sidebar of the dashboard. Paid and confirmed payme
 
 1. From the settlements list, click "Settle Up"
 2. Choose the payment status: pending, paid, or confirmed
-3. Choose "Cash / outside app" or Venmo when configured
+3. Choose "Cash / outside app", Venmo, or Cash App
 4. The settlement is recorded and shown in Payment Status
 
 ## Future Features
@@ -204,7 +196,6 @@ Make sure to add these in Vercel dashboard:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `VENMO_ACCESS_TOKEN` (if using Venmo)
 - `NEXT_PUBLIC_APP_URL` (your production URL)
 
 ## Development
@@ -236,11 +227,11 @@ npm run lint
 - Check RLS policies are set up correctly
 - Verify you're logged in
 
-### Venmo integration not working
+### Payment status not updating
 
-- Confirm Venmo API credentials are correct
-- Check Venmo API status
-- Review API response in browser console
+- Confirm you selected a payment status before recording the settlement
+- Check that the current user is a member of the selected Expense Set
+- Review the `/api/settlements` response in the browser console
 
 ## Contributing
 
