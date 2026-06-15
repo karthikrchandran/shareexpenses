@@ -31,6 +31,14 @@
    SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
    ```
 
+4. Optional AI Trip Closeout settings:
+   ```
+   OPENAI_API_KEY=sk-...
+   OPENAI_CLOSEOUT_MODEL=gpt-5.5
+   ```
+
+   If `OPENAI_API_KEY` is not configured, Trip Closeout still works with deterministic local insights and group-message text.
+
 ### Phase 3: Create Database Tables (3 minutes)
 
 1. In Supabase, go to **SQL Editor**
@@ -109,11 +117,23 @@ CREATE TABLE IF NOT EXISTS settlements (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create saved AI Trip Closeouts table
+CREATE TABLE IF NOT EXISTS expense_set_closeouts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  generated_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  summary_json JSONB NOT NULL,
+  ai_model TEXT,
+  ai_generated BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expense_splits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settlements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE expense_set_closeouts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
 
@@ -244,6 +264,16 @@ CREATE POLICY "Settlement parties can insert Expense Set settlements" ON settlem
     AND auth.uid() IN (from_user_id, to_user_id)
   );
 
+-- RLS Policies for AI Trip Closeouts
+CREATE POLICY "Members can read Expense Set closeouts" ON expense_set_closeouts
+  FOR SELECT USING (public.is_group_member(group_id));
+
+CREATE POLICY "Members can create Expense Set closeouts" ON expense_set_closeouts
+  FOR INSERT WITH CHECK (
+    auth.uid() = generated_by
+    AND public.is_group_member(group_id)
+  );
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
@@ -255,6 +285,7 @@ CREATE INDEX IF NOT EXISTS idx_expense_splits_user ON expense_splits(user_id);
 CREATE INDEX IF NOT EXISTS idx_settlements_group ON settlements(group_id);
 CREATE INDEX IF NOT EXISTS idx_settlements_from_user ON settlements(from_user_id);
 CREATE INDEX IF NOT EXISTS idx_settlements_to_user ON settlements(to_user_id);
+CREATE INDEX IF NOT EXISTS idx_closeouts_group_created ON expense_set_closeouts(group_id, created_at DESC);
 ```
 
 #### Existing Project Upgrade SQL
@@ -281,6 +312,31 @@ ALTER TABLE settlements
 ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'outside-app';
 
 CREATE INDEX IF NOT EXISTS idx_settlements_group ON settlements(group_id);
+
+CREATE TABLE IF NOT EXISTS expense_set_closeouts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  generated_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  summary_json JSONB NOT NULL,
+  ai_model TEXT,
+  ai_generated BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE expense_set_closeouts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Members can read Expense Set closeouts" ON expense_set_closeouts;
+CREATE POLICY "Members can read Expense Set closeouts" ON expense_set_closeouts
+  FOR SELECT USING (public.is_group_member(group_id));
+
+DROP POLICY IF EXISTS "Members can create Expense Set closeouts" ON expense_set_closeouts;
+CREATE POLICY "Members can create Expense Set closeouts" ON expense_set_closeouts
+  FOR INSERT WITH CHECK (
+    auth.uid() = generated_by
+    AND public.is_group_member(group_id)
+  );
+
+CREATE INDEX IF NOT EXISTS idx_closeouts_group_created ON expense_set_closeouts(group_id, created_at DESC);
 ```
 
 ### Phase 4: Setup Auth Trigger (2 minutes)

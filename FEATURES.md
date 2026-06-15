@@ -10,6 +10,7 @@
 - ✅ Protected routes (redirects to login if not authenticated)
 
 ### Expense Tracking
+- AI Trip Closeout with category totals, insights, settlement text, and member-only saved pages
 - Predefined trip categories: VRBO/Airbnb, food, groceries, fuel, miscellaneous
 
 - ✅ Add new expenses

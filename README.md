@@ -5,6 +5,7 @@ A modern app where friends can easily track shared expenses and settle up using 
 ## Features
 
 - **Trip Categories** - Pick VRBO/Airbnb, food, groceries, fuel, or miscellaneous for each expense
+- **AI Trip Closeout** - Generate a saved member-only closeout with totals, insights, flags, and copy-ready settlement text
 
 ✅ **User Authentication** - Sign up and login with email/password via Supabase  
 ✅ **Add Expenses** - Log expenses with flexible descriptions and amounts  
@@ -121,6 +122,15 @@ shareexpenses/
    - **Shares**: Split by proportional shares
 7. Select which Expense Set members are included
 8. Click "Add Expense"
+
+### AI Trip Closeout
+
+1. Select an Expense Set with expenses
+2. Click "Generate Closeout"
+3. Review category totals, biggest expenses, settlement rows, insights, and review flags
+4. Copy the group message or open the member-only closeout page
+
+If `OPENAI_API_KEY` is configured, the app uses OpenAI to polish the narrative copy. Financial totals are always calculated locally first.
 
 ### Settlement Tracking
 

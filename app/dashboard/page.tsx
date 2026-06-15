@@ -8,6 +8,7 @@ import CreateExpenseSetModal from '@/components/CreateExpenseSetModal';
 import ExpenseList from '@/components/ExpenseList';
 import ManageExpenseSetMembersModal from '@/components/ManageExpenseSetMembersModal';
 import SettlementSummary from '@/components/SettlementSummary';
+import TripCloseoutPanel from '@/components/TripCloseoutPanel';
 import { ExpenseSet, ExpenseSetMember } from '@/lib/types';
 
 export default function Dashboard() {
@@ -291,6 +292,16 @@ export default function Dashboard() {
               </div>
 
               <div className="md:col-span-1">
+                {selectedExpenseSet && (
+                  <div className="mb-8">
+                    <TripCloseoutPanel
+                      currentUserId={user?.id || ''}
+                      expenseSetId={selectedExpenseSetId}
+                      expenseSetName={selectedExpenseSet.name}
+                      expenseCount={expenses.length}
+                    />
+                  </div>
+                )}
                 <SettlementSummary
                   expenses={expenses}
                   currentUserId={user?.id || ''}
