@@ -15,11 +15,14 @@ The implemented phase now supports the core workflow needed for the upcoming tri
 - Add expenses scoped to that Expense Set.
 - Split expenses evenly, by exact custom amounts, or by shares/ratios.
 - Pick a trip category on each expense: VRBO/Airbnb, Food, Groceries, Fuel, or Miscellaneous.
+- Capture expense date and optional notes for each ledger entry.
 - Calculate settlements only inside the selected Expense Set.
+- Track settlement payment status as pending, paid, or confirmed.
+- Let friends join an Expense Set from a shared join link after login or signup.
 - Restrict expense visibility and write access by Expense Set membership in API validation and documented Supabase RLS.
 - Let only the payer edit or delete their own expense.
 
-For the trip in a few weeks, treat this as a private beta. The main operational limitation is that every friend must create a registered account before they can be added to the Expense Set. Invite-by-email, guest users, member removal, offline support, receipt upload, and production Venmo OAuth are still outside the current implementation.
+For the trip in a few weeks, treat this as a private beta. Friends still need registered accounts, but they can now use a join link instead of being manually added after signup. Invite-by-email, guest users, member removal, offline support, receipt upload, and production Venmo OAuth are still outside the current implementation.
 
 ## Phase 1 Plan Check
 
@@ -48,7 +51,7 @@ Source plan: `docs/superpowers/specs/2026-06-15-expense-sets-design.md` and `doc
 
 ### Not Yet Production-Ready
 
-- Friend onboarding requires pre-registered users. There is no email invite or shared join link.
+- Friend onboarding uses shared join links, but there is no email invite workflow or guest-user mode.
 - No member removal, roles, ownership transfer, or set archival.
 - No receipt image upload or OCR itemization.
 - No offline/PWA mode for weak signal during travel.
@@ -152,14 +155,16 @@ Use this as the go/no-go checklist before inviting the full friend group.
 - `npm run build` passes.
 - Fresh login and signup work against the target Supabase project.
 - The trip Expense Set can be created.
-- Every intended participant can be added.
+- Every intended participant can be added manually or through the join link.
 - Category dropdown appears on Add Expense.
+- Expense date and notes can be saved and shown in the ledger.
 - Food, grocery, fuel, lodging, and miscellaneous expenses can be created.
 - A lodging expense can be split by shares/ratios.
 - Editing an expense preserves category and split data.
 - Non-payers cannot edit or delete another payer's expense.
 - A non-member cannot load the Expense Set expenses.
 - Settlement summary is understandable enough to send to friends.
+- Pending settlements stay visible without reducing balances; paid or confirmed settlements reduce balances.
 
 ## Competitive Research
 
@@ -195,14 +200,11 @@ Splid and Splittr show that no-registration, offline support, multi-currency, si
 
 Build these if time allows before the trip because they reduce real pilot friction:
 
-1. Email invite or join-link flow.
-2. CSV export for the final trip ledger.
-3. Category totals inside each Expense Set.
-4. Receipt image attachment without OCR.
-5. Settlement share summary that can be copied to text or chat.
-6. Payment status tracking for cash, Venmo, Zelle, PayPal, and manual settlement.
-7. Expense notes and expense date fields.
-8. Member removal with historical expense preservation.
+1. CSV export for the final trip ledger.
+2. Receipt image attachment without OCR.
+3. Settlement share summary that can be copied to text or chat.
+4. Member removal with historical expense preservation.
+5. Basic activity history for edits, deletes, joins, and settlement changes.
 
 ### To Beat Splitwise And SplitEasy For Trips
 

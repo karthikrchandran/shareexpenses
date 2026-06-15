@@ -15,3 +15,7 @@ export function buildOutsideAppSettlementMessage(input: {
   recipientName: string;
   amount: number;
 }): string;
+
+export type SettlementStatus = 'pending' | 'paid' | 'confirmed';
+
+export function normalizeSettlementStatus(status?: unknown): SettlementStatus;

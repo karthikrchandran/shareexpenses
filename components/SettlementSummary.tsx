@@ -24,6 +24,7 @@ type SettledPayment = {
   settled: boolean;
   settled_at?: string;
   payment_method?: string;
+  payment_status?: 'pending' | 'paid' | 'confirmed';
   venmo_transaction_id?: string;
 };
 
@@ -37,6 +38,7 @@ export default function SettlementSummary({
   const [settledPayments, setSettledPayments] = useState<SettledPayment[]>([]);
   const [settlingKey, setSettlingKey] = useState<string | null>(null);
   const [activePaymentKey, setActivePaymentKey] = useState<string | null>(null);
+  const [selectedStatuses, setSelectedStatuses] = useState<Record<string, 'pending' | 'paid' | 'confirmed'>>({});
   const [statusMessage, setStatusMessage] = useState<string>('');
   const venmoConfigured = process.env.NEXT_PUBLIC_VENMO_ENABLED === 'true';
   const paymentMethods = getSettlementPaymentMethods({ venmoConfigured });
@@ -139,9 +141,14 @@ export default function SettlementSummary({
     setActivePaymentKey((currentKey) => (currentKey === key ? null : key));
   };
 
+  const getSelectedStatus = (row: SettlementRow) => {
+    return selectedStatuses[getSettlementKey(row)] || 'paid';
+  };
+
   const recordSettlement = async (
     row: SettlementRow,
     paymentMethod: 'outside-app' | 'venmo',
+    paymentStatus: 'pending' | 'paid' | 'confirmed',
     venmoTransactionId?: string
   ) => {
     const response = await fetch('/api/settlements', {
@@ -156,6 +163,7 @@ export default function SettlementSummary({
         group_id: expenseSetId,
         amount: row.amount,
         payment_method: paymentMethod,
+        payment_status: paymentStatus,
         venmo_transaction_id: venmoTransactionId,
       }),
     });
@@ -171,17 +179,20 @@ export default function SettlementSummary({
 
   const handleOutsideAppSettlement = async (row: SettlementRow) => {
     const key = getSettlementKey(row);
+    const paymentStatus = getSelectedStatus(row);
     setSettlingKey(key);
     setActivePaymentKey(null);
     setStatusMessage('');
 
     try {
-      await recordSettlement(row, 'outside-app');
+      await recordSettlement(row, 'outside-app', paymentStatus);
       setStatusMessage(
-        buildOutsideAppSettlementMessage({
-          recipientName: getCounterpartyName(row),
-          amount: row.amount,
-        })
+        paymentStatus === 'pending'
+          ? `Marked ${formatCurrency(row.amount)} as pending with ${getCounterpartyName(row)}.`
+          : buildOutsideAppSettlementMessage({
+              recipientName: getCounterpartyName(row),
+              amount: row.amount,
+            })
       );
     } catch (error: any) {
       setStatusMessage(error?.message || 'Failed to record settlement');
@@ -192,6 +203,7 @@ export default function SettlementSummary({
 
   const handleVenmoSettlement = async (row: SettlementRow) => {
     const key = getSettlementKey(row);
+    const paymentStatus = getSelectedStatus(row);
     setSettlingKey(key);
     setStatusMessage('');
     setActivePaymentKey(null);
@@ -214,7 +226,7 @@ export default function SettlementSummary({
         throw new Error(payload?.error || 'Failed to settle with Venmo');
       }
 
-      await recordSettlement(row, 'venmo', payload?.venmoTransactionId);
+      await recordSettlement(row, 'venmo', paymentStatus, payload?.venmoTransactionId);
       setStatusMessage('Venmo payment recorded successfully.');
     } catch (error: any) {
       setStatusMessage(error?.message || 'Failed to settle with Venmo');
@@ -236,6 +248,7 @@ export default function SettlementSummary({
     const key = getSettlementKey(row);
     const isSettling = settlingKey === key;
     const isSelectingPayment = activePaymentKey === key;
+    const selectedStatus = selectedStatuses[key] || 'paid';
 
     return (
       <div className="relative mt-1">
@@ -251,6 +264,23 @@ export default function SettlementSummary({
 
         {isSelectingPayment && (
           <div className="absolute right-0 z-10 mt-2 w-48 rounded-lg border border-gray-200 bg-white p-2 text-left shadow-lg">
+            <label className="mb-2 block text-xs font-semibold text-gray-700">
+              Payment status
+            </label>
+            <select
+              value={selectedStatus}
+              onChange={(event) =>
+                setSelectedStatuses((current) => ({
+                  ...current,
+                  [key]: event.target.value as 'pending' | 'paid' | 'confirmed',
+                }))
+              }
+              className="mb-2 w-full rounded-md border border-gray-200 px-2 py-1 text-xs"
+            >
+              <option value="paid">Paid</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+            </select>
             <div className="space-y-1">
               {paymentMethods.map((method) => (
                 <button
@@ -273,6 +303,11 @@ export default function SettlementSummary({
         )}
       </div>
     );
+  };
+
+  const formatSettlementStatus = (payment: SettledPayment) => {
+    const status = payment.payment_status || (payment.settled ? 'paid' : 'pending');
+    return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
   return (
@@ -352,6 +387,32 @@ export default function SettlementSummary({
             </div>
           )}
         </div>
+
+        {settledPayments.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Status</h3>
+            <div className="space-y-3">
+              {settledPayments.slice(0, 5).map((payment) => (
+                <div
+                  key={payment.id || `${payment.from_user_id}-${payment.to_user_id}-${payment.amount}`}
+                  className="rounded-lg border border-gray-200 p-3 text-sm"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-medium text-gray-900">
+                      {usersById[payment.from_user_id] || 'Friend'} to {usersById[payment.to_user_id] || 'Friend'}
+                    </p>
+                    <span className={payment.settled ? 'text-green-700' : 'text-amber-700'}>
+                      {formatSettlementStatus(payment)}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formatCurrency(payment.amount)} via {payment.payment_method || 'outside app'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
     </>

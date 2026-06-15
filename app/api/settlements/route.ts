@@ -6,6 +6,7 @@ import {
   validateExpenseSetId,
   validateSettlementParticipants,
 } from '@/lib/expenseSetAccess';
+import { normalizeSettlementStatus } from '@/lib/settlementPaymentMethods';
 
 async function loadExpenseSetMemberIds(supabase: any, expenseSetId: string) {
   const { data, error } = await supabase
@@ -51,9 +52,8 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('settlements')
-      .select('id, group_id, from_user_id, to_user_id, amount, settled, settled_at, venmo_transaction_id, payment_method, created_at')
+      .select('id, group_id, from_user_id, to_user_id, amount, settled, settled_at, venmo_transaction_id, payment_method, payment_status, created_at')
       .eq('group_id', expenseSetId)
-      .eq('settled', true)
       .order('settled_at', { ascending: false });
 
     if (error) throw error;
@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
       from_user_id,
       group_id,
       payment_method,
+      payment_status,
       to_user_id,
       venmo_transaction_id,
     } = body;
@@ -91,6 +92,8 @@ export async function POST(request: NextRequest) {
 
     const expenseSetId = validateExpenseSetId(group_id);
     const settlementAmount = validateSettlementAmount(amount);
+    const normalizedPaymentStatus = normalizeSettlementStatus(payment_status);
+    const isSettled = normalizedPaymentStatus !== 'pending';
     const memberIds = await loadExpenseSetMemberIds(supabase, expenseSetId);
 
     try {
@@ -108,12 +111,13 @@ export async function POST(request: NextRequest) {
         from_user_id,
         to_user_id,
         amount: settlementAmount,
-        settled: true,
-        settled_at: new Date().toISOString(),
+        settled: isSettled,
+        settled_at: isSettled ? new Date().toISOString() : null,
         payment_method,
+        payment_status: normalizedPaymentStatus,
         venmo_transaction_id: venmo_transaction_id || null,
       })
-      .select('id, group_id, from_user_id, to_user_id, amount, settled, settled_at, venmo_transaction_id, payment_method, created_at')
+      .select('id, group_id, from_user_id, to_user_id, amount, settled, settled_at, venmo_transaction_id, payment_method, payment_status, created_at')
       .single();
 
     if (error) throw error;

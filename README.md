@@ -6,6 +6,9 @@ A modern app where friends can easily track shared expenses and settle up using 
 
 - **Trip Categories** - Pick VRBO/Airbnb, food, groceries, fuel, or miscellaneous for each expense
 - **AI Trip Closeout** - Generate a saved member-only closeout with totals, insights, flags, and copy-ready settlement text
+- **Friend Join Links** - Copy a trip link so friends can sign in and join the Expense Set
+- **Trip Ledger Details** - Capture expense dates and notes for cleaner trip review
+- **Payment Status** - Track pending, paid, and confirmed settlement records
 
 ✅ **User Authentication** - Sign up and login with email/password via Supabase  
 ✅ **Add Expenses** - Log expenses with flexible descriptions and amounts  
@@ -123,6 +126,16 @@ shareexpenses/
 7. Select which Expense Set members are included
 8. Click "Add Expense"
 
+Use **Expense Date** for the day the cost happened and **Notes** for context such as who benefited, what the payment covered, or follow-up details.
+
+### Inviting Friends
+
+1. Open the selected Expense Set
+2. Click "Members"
+3. Create and copy the friend join link
+4. Send the link to friends
+5. Friends sign up or log in, then they are added to the Expense Set automatically
+
 ### AI Trip Closeout
 
 1. Select an Expense Set with expenses
@@ -140,15 +153,14 @@ The app automatically calculates:
 - Settlement amounts
 - Settled outside-app or Venmo payments
 
-View settlements in the right sidebar of the dashboard. Once a payment is recorded, the balance is recalculated and the remaining amount is removed.
+View settlements in the right sidebar of the dashboard. Paid and confirmed payments reduce balances. Pending payments stay visible without closing the balance.
 
 ### Settle Up
 
 1. From the settlements list, click "Settle Up"
-2. Choose "Cash / outside app" or Venmo when configured
-3. The settlement is recorded and balances are recalculated
-3. Confirm payment
-4. Settlement marked as complete
+2. Choose the payment status: pending, paid, or confirmed
+3. Choose "Cash / outside app" or Venmo when configured
+4. The settlement is recorded and shown in Payment Status
 
 ## Future Features
 

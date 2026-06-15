@@ -29,6 +29,8 @@ export default function AddExpenseModal({
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategoryValue>(DEFAULT_EXPENSE_CATEGORY);
+  const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState('');
   const [splitType, setSplitType] = useState<'even' | 'custom' | 'shares'>('even');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([currentUserId]);
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
@@ -44,6 +46,8 @@ export default function AddExpenseModal({
         setDescription('');
         setAmount('');
         setCategory(DEFAULT_EXPENSE_CATEGORY);
+        setExpenseDate(new Date().toISOString().slice(0, 10));
+        setNotes('');
         setSplitType('even');
         setSelectedUsers([currentUserId]);
         setCustomAmounts({});
@@ -54,6 +58,8 @@ export default function AddExpenseModal({
       setDescription(existingExpense.description || '');
       setAmount(String(existingExpense.amount || ''));
       setCategory((existingExpense.category || DEFAULT_EXPENSE_CATEGORY) as ExpenseCategoryValue);
+      setExpenseDate(existingExpense.expense_date || new Date(existingExpense.created_at).toISOString().slice(0, 10));
+      setNotes(existingExpense.notes || '');
 
       const { data: existingSplits, error: splitError } = await supabase
         .from('expense_splits')
@@ -289,6 +295,8 @@ export default function AddExpenseModal({
             description,
             amount: amountNum,
             category,
+            expense_date: expenseDate,
+            notes,
             splits,
           }),
         });
@@ -307,6 +315,8 @@ export default function AddExpenseModal({
             description,
             amount: amountNum,
             category,
+            expense_date: expenseDate,
+            notes,
             paid_by_user_id: currentUserId,
             group_id: expenseSetId,
             splits,
@@ -323,6 +333,8 @@ export default function AddExpenseModal({
       setDescription('');
       setAmount('');
       setCategory(DEFAULT_EXPENSE_CATEGORY);
+      setExpenseDate(new Date().toISOString().slice(0, 10));
+      setNotes('');
       setSplitType('even');
       setSelectedUsers([currentUserId]);
       setCustomAmounts({});
@@ -404,6 +416,31 @@ export default function AddExpenseModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Expense Date
+            </label>
+            <input
+              type="date"
+              value={expenseDate}
+              onChange={(e) => setExpenseDate(e.target.value)}
+              className="input-field"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Notes
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Optional context, who benefited, payment details, or trip notes"
+              className="input-field min-h-20 resize-y"
+            />
           </div>
 
           <div>

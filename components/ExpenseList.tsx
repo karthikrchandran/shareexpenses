@@ -57,8 +57,11 @@ export default function ExpenseList({ expenses, onRefresh, currentUserId, onEdit
               </span>
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              Paid by {expense.paid_by_user?.name} • {formatDate(expense.created_at)}
+              Paid by {expense.paid_by_user?.name} • {formatDate(expense.expense_date || expense.created_at)}
             </p>
+            {expense.notes && (
+              <p className="mt-2 max-w-2xl text-sm text-gray-600">{expense.notes}</p>
+            )}
           </div>
 
           <div className="text-right flex items-center gap-4">

@@ -17,6 +17,8 @@ export interface Expense {
   description: string;
   amount: number;
   category?: ExpenseCategoryValue;
+  expense_date?: string;
+  notes?: string | null;
   paid_by_user_id: string;
   paid_by_user?: User;
   created_at: string;
@@ -44,6 +46,7 @@ export interface Settlement {
   settled: boolean;
   settled_at?: string;
   payment_method?: 'outside-app' | 'venmo';
+  payment_status?: 'pending' | 'paid' | 'confirmed';
   venmo_transaction_id?: string;
   created_at: string;
 }
@@ -53,6 +56,7 @@ export interface Group {
   name: string;
   description?: string;
   created_by: string;
+  join_token?: string;
   created_at: string;
 }
 

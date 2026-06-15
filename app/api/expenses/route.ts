@@ -7,6 +7,7 @@ import {
   validateSplitTotal,
 } from '@/lib/expenseSetAccess';
 import { normalizeExpenseCategory } from '@/lib/expenseCategories';
+import { normalizeExpenseDate, normalizeExpenseNotes } from '@/lib/expenseMetadata';
 
 async function loadExpenseSetMemberIds(supabase: any, expenseSetId: string) {
   const { data, error } = await supabase
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceRoleClient();
     const body = await request.json();
 
-    const { description, amount, paid_by_user_id, group_id, splits, category } = body;
+    const { description, amount, paid_by_user_id, group_id, splits, category, expense_date, notes } = body;
 
     if (!description || !amount || !paid_by_user_id || !Array.isArray(splits)) {
       return NextResponse.json(
@@ -34,9 +35,13 @@ export async function POST(request: NextRequest) {
 
     let expenseSetId: string;
     let expenseCategory: string;
+    let expenseDate: string;
+    let expenseNotes: string | null;
     try {
       expenseSetId = validateExpenseSetId(group_id);
       expenseCategory = normalizeExpenseCategory(category);
+      expenseDate = normalizeExpenseDate(expense_date);
+      expenseNotes = normalizeExpenseNotes(notes);
       validateSplitTotal(splits, Number(amount));
     } catch (error: any) {
       return NextResponse.json({ error: error.message }, { status: 400 });
@@ -58,6 +63,8 @@ export async function POST(request: NextRequest) {
         description,
         amount,
         category: expenseCategory,
+        expense_date: expenseDate,
+        notes: expenseNotes,
         paid_by_user_id,
         group_id: expenseSetId,
       })
@@ -116,6 +123,7 @@ export async function GET(request: NextRequest) {
       .from('expenses')
       .select('*, paid_by_user:users!paid_by_user_id(*)')
       .eq('group_id', expenseSetId)
+      .order('expense_date', { ascending: false })
       .order('created_at', { ascending: false });
 
     if (error) throw error;

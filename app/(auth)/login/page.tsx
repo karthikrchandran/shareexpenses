@@ -21,6 +21,13 @@ function LoginContent() {
     }
   }, [searchParams]);
 
+  const getSafeNextPath = () => {
+    const nextPath = searchParams.get('next');
+    return nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')
+      ? nextPath
+      : '/dashboard';
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -35,8 +42,7 @@ function LoginContent() {
 
       if (authError) throw authError;
 
-      // Redirect to dashboard
-      router.push('/dashboard');
+      router.push(getSafeNextPath());
     } catch (err: any) {
       setError(err.message || 'Failed to log in');
     } finally {
@@ -110,7 +116,10 @@ function LoginContent() {
 
         <p className="text-center text-gray-600 mt-6">
           Don&apos;t have an account?{' '}
-          <Link href="/signup" className="text-primary font-semibold hover:underline">
+          <Link
+            href={`/signup${searchParams.get('next') ? `?next=${encodeURIComponent(searchParams.get('next') || '')}` : ''}`}
+            className="text-primary font-semibold hover:underline"
+          >
             Sign up
           </Link>
         </p>

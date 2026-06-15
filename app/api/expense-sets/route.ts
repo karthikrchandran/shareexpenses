@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
+import { createJoinToken } from '@/lib/joinLinks';
 
 export async function GET(request: NextRequest) {
   try {
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
         name,
         description: description || null,
         created_by: createdByUserId,
+        join_token: createJoinToken(),
       })
       .select()
       .single();

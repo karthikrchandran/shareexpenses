@@ -1,18 +1,19 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Mail, Lock, User, AlertCircle } from 'lucide-react';
 
-export default function SignUpPage() {
+function SignUpContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,9 +33,9 @@ export default function SignUpPage() {
 
       if (authError) throw authError;
 
-      // User profile is auto-created by the database trigger on_auth_user_created
-      // Redirect to login with success message
-      router.push('/login?signup=success');
+      const nextPath = searchParams.get('next');
+      const nextQuery = nextPath ? `&next=${encodeURIComponent(nextPath)}` : '';
+      router.push(`/login?signup=success${nextQuery}`);
     } catch (err: any) {
       setError(err.message || 'Failed to sign up');
     } finally {
@@ -118,11 +119,22 @@ export default function SignUpPage() {
 
         <p className="text-center text-gray-600 mt-6">
           Already have an account?{' '}
-          <Link href="/login" className="text-primary font-semibold hover:underline">
+          <Link
+            href={`/login${searchParams.get('next') ? `?next=${encodeURIComponent(searchParams.get('next') || '')}` : ''}`}
+            className="text-primary font-semibold hover:underline"
+          >
             Log in
           </Link>
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-primary to-blue-600" />}>
+      <SignUpContent />
+    </Suspense>
   );
 }

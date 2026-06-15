@@ -8,13 +8,18 @@ export function useAuth() {
   const router = useRouter();
 
   useEffect(() => {
+    const redirectToLogin = () => {
+      const currentPath = `${window.location.pathname}${window.location.search}`;
+      router.push(`/login?next=${encodeURIComponent(currentPath)}`);
+    };
+
     const checkAuth = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (!session) {
-        router.push('/login');
+        redirectToLogin();
       } else {
         setUser(session.user);
       }
@@ -25,7 +30,7 @@ export function useAuth() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) {
-        router.push('/login');
+        redirectToLogin();
       } else {
         setUser(session.user);
       }

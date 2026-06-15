@@ -55,3 +55,24 @@ test('a partial settled transfer leaves only the remaining balance', () => {
     bob: { alice: 30 },
   });
 });
+
+test('pending settlements do not reduce outstanding balances', () => {
+  const settlements = calculateSettlements(
+    [{ id: 'expense-1', paid_by_user_id: 'alice', amount: 100 }],
+    [
+      { expense_id: 'expense-1', user_id: 'alice', amount: 50 },
+      { expense_id: 'expense-1', user_id: 'bob', amount: 50 },
+    ],
+    [
+      {
+        from_user_id: 'bob',
+        to_user_id: 'alice',
+        amount: 50,
+        settled: false,
+        payment_status: 'pending',
+      },
+    ]
+  );
+
+  assert.equal(settlements.bob.alice, 50);
+});

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, X } from 'lucide-react';
+import { AlertCircle, Copy, Link as LinkIcon, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { ExpenseSet, ExpenseSetMember, User } from '@/lib/types';
 
@@ -25,7 +25,10 @@ export default function ManageExpenseSetMembersModal({
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [joinLinkLoading, setJoinLinkLoading] = useState(false);
+  const [joinLink, setJoinLink] = useState('');
   const [error, setError] = useState('');
+  const [copyMessage, setCopyMessage] = useState('');
 
   const memberIds = useMemo(
     () => new Set(members.map((member) => member.user_id)),
@@ -57,9 +60,41 @@ export default function ManageExpenseSetMembersModal({
   useEffect(() => {
     if (!isOpen) {
       setSelectedUserId('');
+      setJoinLink('');
+      setCopyMessage('');
       setError('');
     }
   }, [isOpen]);
+
+  const handleCreateJoinLink = async () => {
+    setError('');
+    setCopyMessage('');
+    setJoinLinkLoading(true);
+
+    try {
+      const response = await fetch(`/api/expense-sets/${expenseSet.id}/join-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actorUserId: currentUserId }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to create join link');
+      }
+
+      setJoinLink(payload.joinUrl);
+    } catch (err: any) {
+      setError(err.message || 'Failed to create join link');
+    } finally {
+      setJoinLinkLoading(false);
+    }
+  };
+
+  const handleCopyJoinLink = async () => {
+    if (!joinLink) return;
+    await navigator.clipboard.writeText(joinLink);
+    setCopyMessage('Join link copied.');
+  };
 
   const handleAddMember = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -122,6 +157,46 @@ export default function ManageExpenseSetMembersModal({
           <div>
             <p className="text-sm text-gray-600 mb-2">Expense Set</p>
             <p className="font-semibold text-gray-900">{expenseSet.name}</p>
+          </div>
+
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <div className="flex items-start gap-3">
+              <LinkIcon size={18} className="mt-0.5 text-blue-700" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-blue-950">Friend join link</p>
+                <p className="mt-1 text-xs text-blue-800">
+                  Send this to friends. After login or signup, they will join this Expense Set automatically.
+                </p>
+                {joinLink && (
+                  <input
+                    readOnly
+                    value={joinLink}
+                    className="mt-3 w-full rounded-md border border-blue-200 bg-white px-3 py-2 text-xs text-gray-700"
+                  />
+                )}
+                {copyMessage && <p className="mt-2 text-xs text-blue-800">{copyMessage}</p>}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCreateJoinLink}
+                    disabled={joinLinkLoading}
+                    className="rounded-md bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+                  >
+                    {joinLinkLoading ? 'Creating...' : joinLink ? 'Refresh link' : 'Create link'}
+                  </button>
+                  {joinLink && (
+                    <button
+                      type="button"
+                      onClick={handleCopyJoinLink}
+                      className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-100"
+                    >
+                      <Copy size={13} />
+                      Copy
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           <div>

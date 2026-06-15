@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS groups (
   name TEXT NOT NULL,
   description TEXT,
   created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  join_token TEXT UNIQUE DEFAULT gen_random_uuid()::text,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -86,6 +87,8 @@ CREATE TABLE IF NOT EXISTS expenses (
   amount DECIMAL(10, 2) NOT NULL CHECK (amount > 0),
   category TEXT NOT NULL DEFAULT 'miscellaneous'
     CHECK (category IN ('lodging', 'food', 'groceries', 'fuel', 'miscellaneous')),
+  expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  notes TEXT,
   paid_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -113,6 +116,8 @@ CREATE TABLE IF NOT EXISTS settlements (
   settled BOOLEAN DEFAULT FALSE,
   settled_at TIMESTAMP,
   payment_method TEXT NOT NULL DEFAULT 'outside-app',
+  payment_status TEXT NOT NULL DEFAULT 'paid'
+    CHECK (payment_status IN ('pending', 'paid', 'confirmed')),
   venmo_transaction_id TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -277,8 +282,10 @@ CREATE POLICY "Members can create Expense Set closeouts" ON expense_set_closeout
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_groups_join_token ON groups(join_token) WHERE join_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_expenses_group ON expenses(group_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_group_category ON expenses(group_id, category);
+CREATE INDEX IF NOT EXISTS idx_expenses_group_date ON expenses(group_id, expense_date DESC);
 CREATE INDEX IF NOT EXISTS idx_expenses_paid_by ON expenses(paid_by_user_id);
 CREATE INDEX IF NOT EXISTS idx_expense_splits_expense ON expense_splits(expense_id);
 CREATE INDEX IF NOT EXISTS idx_expense_splits_user ON expense_splits(user_id);
@@ -293,8 +300,25 @@ CREATE INDEX IF NOT EXISTS idx_closeouts_group_created ON expense_set_closeouts(
 If your Supabase project already has the Phase 1 Expense Set tables, run this before testing categories:
 
 ```sql
+ALTER TABLE groups
+ADD COLUMN IF NOT EXISTS join_token TEXT;
+
+UPDATE groups
+SET join_token = gen_random_uuid()::text
+WHERE join_token IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_groups_join_token
+ON groups(join_token)
+WHERE join_token IS NOT NULL;
+
 ALTER TABLE expenses
 ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'miscellaneous';
+
+ALTER TABLE expenses
+ADD COLUMN IF NOT EXISTS expense_date DATE NOT NULL DEFAULT CURRENT_DATE;
+
+ALTER TABLE expenses
+ADD COLUMN IF NOT EXISTS notes TEXT;
 
 ALTER TABLE expenses
 DROP CONSTRAINT IF EXISTS expenses_category_check;
@@ -304,12 +328,23 @@ ADD CONSTRAINT expenses_category_check
 CHECK (category IN ('lodging', 'food', 'groceries', 'fuel', 'miscellaneous'));
 
 CREATE INDEX IF NOT EXISTS idx_expenses_group_category ON expenses(group_id, category);
+CREATE INDEX IF NOT EXISTS idx_expenses_group_date ON expenses(group_id, expense_date DESC);
 
 ALTER TABLE settlements
 ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES groups(id) ON DELETE CASCADE;
 
 ALTER TABLE settlements
 ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'outside-app';
+
+ALTER TABLE settlements
+ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'paid';
+
+ALTER TABLE settlements
+DROP CONSTRAINT IF EXISTS settlements_payment_status_check;
+
+ALTER TABLE settlements
+ADD CONSTRAINT settlements_payment_status_check
+CHECK (payment_status IN ('pending', 'paid', 'confirmed'));
 
 CREATE INDEX IF NOT EXISTS idx_settlements_group ON settlements(group_id);
 
