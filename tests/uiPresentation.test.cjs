@@ -115,7 +115,13 @@ test('dashboard lays out active sets, expenses, and tools as three panes', () =>
   assert.match(source, /grid-cols-\[280px_minmax\(0,1fr\)_360px\]/);
   assert.match(source, /<aside[\s\S]*>Open</);
   assert.match(source, /aria-label="Expense Sets"/);
-  assert.match(source, /bg-gradient-to-br from-primary to-blue-600/);
+  assert.equal(
+    source.includes('bg-gradient-to-br from-primary to-blue-600 p-3 text-white'),
+    false,
+    'Expense Set selector should not use the blue launch-page treatment inside the dashboard'
+  );
+  assert.match(source, /rounded-lg border border-indigo-100 bg-white\/95 p-4/);
+  assert.match(source, /grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1/);
   assert.match(source, /role="tablist"/);
   assert.match(source, /role=\{isClosed \? undefined : 'tab'\}/);
   assert.match(source, /Selected Set/);

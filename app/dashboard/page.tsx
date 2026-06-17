@@ -290,10 +290,10 @@ export default function Dashboard() {
         role={isClosed ? undefined : 'tab'}
         aria-selected={isClosed ? undefined : isSelected}
         onClick={() => setSelectedExpenseSetId(expenseSet.id)}
-        className={`group w-full min-h-[58px] rounded-xl border p-2.5 text-left transition focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-primary ${
+        className={`group w-full min-h-[58px] rounded-lg border-2 p-2.5 text-left transition focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
           isSelected
-            ? 'border-white bg-white text-gray-950 shadow-md shadow-indigo-950/20'
-            : 'border-white/15 bg-white/10 text-white hover:border-white/40 hover:bg-white/15'
+            ? 'border-primary bg-indigo-50 text-gray-950 shadow-sm'
+            : 'border-gray-200 bg-white text-gray-900 hover:border-primary/60 hover:bg-gray-50'
         }`}
       >
         <span className="flex items-center justify-between gap-3">
@@ -303,7 +303,9 @@ export default function Dashboard() {
                 ? isClosed
                   ? 'bg-emerald-50 text-emerald-700'
                   : 'bg-indigo-50 text-primary'
-                : 'bg-white/15 text-white'
+                : isClosed
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-indigo-50 text-primary'
             }`}>
               {isClosed ? <CheckCircle2 size={20} /> : <Icon size={20} />}
             </span>
@@ -316,7 +318,7 @@ export default function Dashboard() {
           <ChevronRight
             size={16}
             className={`shrink-0 transition ${
-              isSelected ? 'text-primary' : 'text-white/70 group-hover:text-white'
+              isSelected ? 'text-primary' : 'text-gray-400 group-hover:text-primary'
             }`}
           />
         </span>
@@ -437,40 +439,40 @@ export default function Dashboard() {
           <>
             <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)_360px]">
               <aside className="space-y-4">
-                <section className="rounded-2xl bg-gradient-to-br from-primary to-blue-600 p-3 text-white shadow-xl shadow-indigo-200/70">
-                  <div className="grid grid-cols-2 gap-2 rounded-xl bg-white/15 p-1" aria-label="Expense Set view">
+                <section className="rounded-lg border border-indigo-100 bg-white/95 p-4 shadow-sm shadow-indigo-100/50">
+                  <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1" aria-label="Expense Set view">
                     <button
                       type="button"
                       onClick={() => setExpenseSetView('active')}
-                      className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                      className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
                         expenseSetView === 'active'
-                          ? 'bg-white text-primary shadow-md shadow-indigo-950/10'
-                          : 'text-white/80 hover:bg-white/10 hover:text-white'
+                          ? 'bg-white text-primary shadow-sm'
+                          : 'text-slate-600 hover:text-slate-950'
                       }`}
                     >Open</button>
                     <button
                       type="button"
                       onClick={() => setExpenseSetView('closed')}
-                      className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                      className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
                         expenseSetView === 'closed'
-                          ? 'bg-white text-emerald-700 shadow-md shadow-indigo-950/10'
-                          : 'text-white/80 hover:bg-white/10 hover:text-white'
+                          ? 'bg-white text-emerald-700 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-950'
                       }`}
                     >Archive</button>
                   </div>
 
                   <div className="relative mt-3">
-                    <Search size={16} className="pointer-events-none absolute left-3 top-2.5 text-primary/60" />
+                    <Search size={16} className="pointer-events-none absolute left-3 top-2.5 text-slate-400" />
                     <input
                       type="search"
                       value={expenseSetSearch}
                       onChange={(event) => setExpenseSetSearch(event.target.value)}
                       placeholder="Search Expense Sets"
-                      className="w-full rounded-xl border border-white bg-white py-2 pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:ring-2 focus:ring-white/70"
+                      className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
 
-                  <div className="my-3 flex items-center justify-between text-xs font-semibold text-white/75">
+                  <div className="my-3 flex items-center justify-between text-xs font-medium text-slate-500">
                     <span>
                       {filteredExpenseSets.length} {filteredExpenseSets.length === 1 ? 'set' : 'sets'}
                     </span>
@@ -486,7 +488,7 @@ export default function Dashboard() {
                       )}
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-dashed border-white/35 bg-white/10 p-3 text-sm text-white/80">
+                    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-sm text-gray-500">
                       No matching Expense Sets.
                     </div>
                   )}
@@ -497,7 +499,7 @@ export default function Dashboard() {
                         type="button"
                         onClick={() => setCurrentExpenseSetPage((page) => Math.max(0, page - 1))}
                         disabled={currentExpenseSetPage === 0}
-                        className="flex items-center justify-center gap-1 rounded-lg border border-white/30 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                        className="flex items-center justify-center gap-1 rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <ChevronLeft size={16} />
                         Previous
@@ -508,7 +510,7 @@ export default function Dashboard() {
                           setCurrentExpenseSetPage((page) => Math.min(totalExpenseSetPages - 1, page + 1))
                         }
                         disabled={currentExpenseSetPage >= totalExpenseSetPages - 1}
-                        className="flex items-center justify-center gap-1 rounded-lg border border-white/30 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                        className="flex items-center justify-center gap-1 rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Next
                         <ChevronRight size={16} />
