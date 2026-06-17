@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { X, AlertCircle } from 'lucide-react';
 import { ExpenseSetMember } from '@/lib/types';
@@ -38,6 +38,17 @@ export default function AddExpenseModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const memberUsers = useMemo(() => members.map((member) => ({
+    id: member.user_id,
+    name: member.user?.name || 'Member',
+    email: member.user?.email,
+  })), [members]);
+
+  const allMemberIds = useMemo(
+    () => memberUsers.map((user) => user.id),
+    [memberUsers]
+  );
+
   useEffect(() => {
     const hydrateModal = async () => {
       if (!isOpen) return;
@@ -49,7 +60,7 @@ export default function AddExpenseModal({
         setExpenseDate(new Date().toISOString().slice(0, 10));
         setNotes('');
         setSplitType('even');
-        setSelectedUsers([currentUserId]);
+        setSelectedUsers(allMemberIds.length > 0 ? allMemberIds : [currentUserId]);
         setCustomAmounts({});
         setCustomShares({});
         return;
@@ -99,7 +110,12 @@ export default function AddExpenseModal({
     };
 
     hydrateModal();
-  }, [isOpen, existingExpense, currentUserId]);
+  }, [isOpen, existingExpense, currentUserId, allMemberIds]);
+
+  useEffect(() => {
+    if (!isOpen || existingExpense || splitType !== 'even') return;
+    setSelectedUsers(allMemberIds.length > 0 ? allMemberIds : [currentUserId]);
+  }, [allMemberIds, currentUserId, existingExpense, isOpen, splitType]);
 
   useEffect(() => {
     if (!isOpen || splitType !== 'custom') return;
@@ -141,15 +157,19 @@ export default function AddExpenseModal({
     });
   }, [isOpen, splitType, selectedUsers, currentUserId]);
 
-  const memberUsers = members.map((member) => ({
-    id: member.user_id,
-    name: member.user?.name || 'Member',
-    email: member.user?.email,
-  }));
-
   const findMemberName = (userId: string) => {
     const member = memberUsers.find((user) => user.id === userId);
     return member?.name || 'Member';
+  };
+
+  const handleSelectAllMembers = () => {
+    setSelectedUsers(allMemberIds.length > 0 ? allMemberIds : [currentUserId]);
+  };
+
+  const handleClearMembers = () => {
+    setSelectedUsers([currentUserId]);
+    setCustomAmounts({});
+    setCustomShares({});
   };
 
   const handleToggleUser = (userId: string) => {
@@ -336,7 +356,7 @@ export default function AddExpenseModal({
       setExpenseDate(new Date().toISOString().slice(0, 10));
       setNotes('');
       setSplitType('even');
-      setSelectedUsers([currentUserId]);
+      setSelectedUsers(allMemberIds.length > 0 ? allMemberIds : [currentUserId]);
       setCustomAmounts({});
       setCustomShares({});
     } catch (err: any) {
@@ -459,9 +479,32 @@ export default function AddExpenseModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Split Among
-            </label>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Split Among
+              </label>
+              <span className="text-xs font-medium text-gray-500">
+                {selectedUsers.length === memberUsers.length
+                  ? 'Everyone selected'
+                  : `${selectedUsers.length} of ${memberUsers.length} selected`}
+              </span>
+            </div>
+            <div className="mb-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleSelectAllMembers}
+                className="rounded-md border border-primary/30 bg-indigo-50 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-indigo-100"
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                onClick={handleClearMembers}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Clear
+              </button>
+            </div>
             <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
               {memberUsers.map((user) => (
                 <label key={user.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">

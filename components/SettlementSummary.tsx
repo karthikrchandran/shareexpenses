@@ -328,17 +328,6 @@ export default function SettlementSummary({
           </div>
         </div>
 
-        {/* Settlement Instructions */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-900 mb-2">How it works</h4>
-          <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-            <li>Add expenses with your friends</li>
-            <li>Choose who the expense is split between</li>
-            <li>ShareExpenses calculates who owes what</li>
-            <li>Settle up outside the app, then record the payment status here</li>
-          </ol>
-        </div>
-
         {/* Settlements */}
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Settlements</h3>

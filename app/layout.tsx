@@ -4,6 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'ShareExpenses',
   description: 'Share expenses with friends easily',
+  icons: { icon: '/favicon.svg' },
 };
 
 export default function RootLayout({

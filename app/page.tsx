@@ -5,20 +5,23 @@ import { DollarSign, Users, BarChart3, Zap } from 'lucide-react';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary to-blue-600">
+    <div className="min-h-screen bg-gradient-to-br from-primary to-blue-600 flex flex-col">
       {/* Navigation */}
       <nav className="flex justify-between items-center p-6 text-white max-w-7xl mx-auto">
         <div className="flex items-center gap-2 text-2xl font-bold">
           <DollarSign size={28} />
           ShareExpenses
         </div>
-        <div className="flex gap-4">
-          <Link href="/login" className="hover:opacity-80 transition">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/login"
+            className="rounded-lg border-2 border-secondary bg-secondary px-5 py-2 font-semibold text-white shadow-md shadow-indigo-950/20 transition hover:border-emerald-500 hover:bg-emerald-500 focus:outline-none focus:ring-4 focus:ring-white/30"
+          >
             Login
           </Link>
           <Link
             href="/signup"
-            className="bg-white text-primary px-6 py-2 rounded-lg font-semibold hover:bg-opacity-90 transition"
+            className="rounded-lg border-2 border-white bg-white px-6 py-2 font-semibold text-primary shadow-md shadow-indigo-950/20 transition hover:bg-indigo-50"
           >
             Sign Up
           </Link>
@@ -26,7 +29,7 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section className="text-white text-center py-20 px-6">
+      <section className="text-white text-center py-12 px-6 md:py-16">
         <h1 className="text-5xl md:text-6xl font-bold mb-6">
           Split Expenses with Friends
         </h1>
@@ -34,16 +37,19 @@ export default function Home() {
           Track who paid what, calculate fair splits, and record friend payments.
           No more confusion about shared expenses.
         </p>
-        <Link href="/signup" className="inline-block btn-primary text-lg px-8 py-3">
+        <Link
+          href="/signup"
+          className="inline-flex items-center justify-center rounded-lg border-2 border-white bg-white px-8 py-3 text-lg font-bold text-primary shadow-lg shadow-indigo-950/25 transition hover:bg-indigo-50 focus:outline-none focus:ring-4 focus:ring-white/40"
+        >
           Get Started Free
         </Link>
       </section>
 
       {/* Features Section */}
-      <section className="bg-white py-20 px-6">
+      <section className="bg-white px-6 py-10 md:py-12">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold text-center mb-12">Features</h2>
-          <div className="grid md:grid-cols-4 gap-8">
+          <h2 className="text-3xl font-bold text-center mb-8">Features</h2>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="text-center">
               <div className="flex justify-center mb-4">
                 <DollarSign size={40} className="text-primary" />
@@ -84,17 +90,6 @@ export default function Home() {
               </p>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-primary text-white py-16 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to split smarter?</h2>
-          <p className="mb-8 text-lg">Sign up now and start tracking expenses with your friends.</p>
-          <Link href="/signup" className="inline-block bg-white text-primary px-8 py-3 rounded-lg font-semibold hover:bg-opacity-90 transition">
-            Get Started
-          </Link>
         </div>
       </section>
     </div>

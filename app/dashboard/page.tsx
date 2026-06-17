@@ -2,7 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth, logout } from '@/lib/useAuth';
-import { Plus, LogOut, DollarSign, UserPlus } from 'lucide-react';
+import {
+  Activity,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle2,
+  DollarSign,
+  Home,
+  LogOut,
+  Plane,
+  Plus,
+  Search,
+  Sparkles,
+  UsersRound,
+  WalletCards,
+} from 'lucide-react';
 import AddExpenseModal from '@/components/AddExpenseModal';
 import ActivityFeed from '@/components/ActivityFeed';
 import CreateExpenseSetModal from '@/components/CreateExpenseSetModal';
@@ -12,10 +27,44 @@ import SettlementSummary from '@/components/SettlementSummary';
 import TripCloseoutPanel from '@/components/TripCloseoutPanel';
 import { ExpenseSet, ExpenseSetMember } from '@/lib/types';
 
+type WorkspaceTab = 'settlements' | 'closeout' | 'activity';
+type ExpenseSetView = 'active' | 'closed';
+
+const EXPENSE_SET_PAGE_SIZE = 3;
+
+const supportTabs: Array<{
+  id: WorkspaceTab;
+  label: string;
+  icon: typeof WalletCards;
+}> = [
+  { id: 'settlements', label: 'Settle', icon: WalletCards },
+  { id: 'closeout', label: 'Closeout', icon: Sparkles },
+  { id: 'activity', label: 'Activity', icon: Activity },
+];
+
+function getExpenseSetIcon(expenseSet: ExpenseSet) {
+  const name = `${expenseSet.name} ${expenseSet.description || ''}`.toLowerCase();
+  if (name.includes('trip') || name.includes('travel') || name.includes('vrbo') || name.includes('airbnb')) {
+    return Plane;
+  }
+  if (name.includes('home') || name.includes('house') || name.includes('rent')) {
+    return Home;
+  }
+  if (name.includes('month') || name.includes('week') || name.includes('january') || name.includes('june')) {
+    return CalendarDays;
+  }
+  return UsersRound;
+}
+
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const [expenseSets, setExpenseSets] = useState<ExpenseSet[]>([]);
   const [selectedExpenseSetId, setSelectedExpenseSetId] = useState('');
+  const [expenseSetCloseouts, setExpenseSetCloseouts] = useState<Record<string, any | null>>({});
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('settlements');
+  const [expenseSetView, setExpenseSetView] = useState<ExpenseSetView>('active');
+  const [expenseSetSearch, setExpenseSetSearch] = useState('');
+  const [currentExpenseSetPage, setCurrentExpenseSetPage] = useState(0);
   const [members, setMembers] = useState<ExpenseSetMember[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -31,6 +80,42 @@ export default function Dashboard() {
   const selectedExpenseSet = useMemo(
     () => expenseSets.find((expenseSet) => expenseSet.id === selectedExpenseSetId) || null,
     [expenseSets, selectedExpenseSetId]
+  );
+
+  const selectedCloseout = selectedExpenseSetId
+    ? expenseSetCloseouts[selectedExpenseSetId]
+    : null;
+
+  const activeExpenseSets = useMemo(
+    () => expenseSets.filter((expenseSet) => !expenseSetCloseouts[expenseSet.id]),
+    [expenseSetCloseouts, expenseSets]
+  );
+
+  const closedExpenseSets = useMemo(
+    () => expenseSets.filter((expenseSet) => expenseSetCloseouts[expenseSet.id]),
+    [expenseSetCloseouts, expenseSets]
+  );
+
+  const filteredExpenseSets = useMemo(() => {
+    const query = expenseSetSearch.trim().toLowerCase();
+    const source = expenseSetView === 'active' ? activeExpenseSets : closedExpenseSets;
+
+    if (!query) return source;
+
+    return source.filter((expenseSet) => {
+      const searchable = `${expenseSet.name} ${expenseSet.description || ''}`.toLowerCase();
+      return searchable.includes(query);
+    });
+  }, [activeExpenseSets, closedExpenseSets, expenseSetSearch, expenseSetView]);
+
+  const totalExpenseSetPages = Math.max(
+    1,
+    Math.ceil(filteredExpenseSets.length / EXPENSE_SET_PAGE_SIZE)
+  );
+
+  const visibleExpenseSets = filteredExpenseSets.slice(
+    currentExpenseSetPage * EXPENSE_SET_PAGE_SIZE,
+    (currentExpenseSetPage + 1) * EXPENSE_SET_PAGE_SIZE
   );
 
   const loadExpenseSets = useCallback(async (preferredExpenseSetId?: string) => {
@@ -59,6 +144,32 @@ export default function Dashboard() {
       setExpenseSetsLoading(false);
     }
   }, [user?.id]);
+
+  const loadExpenseSetCloseouts = useCallback(async () => {
+    if (!user?.id || expenseSets.length === 0) {
+      setExpenseSetCloseouts({});
+      return;
+    }
+
+    const closeoutEntries = await Promise.all(
+      expenseSets.map(async (expenseSet) => {
+        try {
+          const response = await fetch(
+            `/api/expense-sets/${expenseSet.id}/closeout?userId=${encodeURIComponent(user.id)}`
+          );
+          if (!response.ok) {
+            return [expenseSet.id, null] as const;
+          }
+          const payload = await response.json();
+          return [expenseSet.id, payload || null] as const;
+        } catch {
+          return [expenseSet.id, null] as const;
+        }
+      })
+    );
+
+    setExpenseSetCloseouts(Object.fromEntries(closeoutEntries));
+  }, [expenseSets, user?.id]);
 
   const loadMembers = useCallback(async () => {
     if (!user?.id || !selectedExpenseSetId) return;
@@ -111,6 +222,18 @@ export default function Dashboard() {
   }, [loadExpenseSets, user?.id]);
 
   useEffect(() => {
+    loadExpenseSetCloseouts();
+  }, [loadExpenseSetCloseouts]);
+
+  useEffect(() => {
+    setCurrentExpenseSetPage(0);
+  }, [expenseSetSearch, expenseSetView]);
+
+  useEffect(() => {
+    setCurrentExpenseSetPage((page) => Math.min(page, totalExpenseSetPages - 1));
+  }, [totalExpenseSetPages]);
+
+  useEffect(() => {
     if (user?.id && selectedExpenseSetId) {
       loadMembers();
       loadExpenses();
@@ -147,8 +270,93 @@ export default function Dashboard() {
     setActivityRefreshKey((key) => key + 1);
   };
 
+  const handleCloseoutChanged = () => {
+    setActivityRefreshKey((key) => key + 1);
+    loadExpenseSetCloseouts();
+  };
+
   const handleLogout = async () => {
     await logout();
+  };
+
+  const renderExpenseSetButton = (expenseSet: ExpenseSet, isClosed = false) => {
+    const Icon = getExpenseSetIcon(expenseSet);
+    const isSelected = selectedExpenseSetId === expenseSet.id;
+
+    return (
+      <button
+        key={expenseSet.id}
+        type="button"
+        role={isClosed ? undefined : 'tab'}
+        aria-selected={isClosed ? undefined : isSelected}
+        onClick={() => setSelectedExpenseSetId(expenseSet.id)}
+        className={`group w-full min-h-[58px] rounded-xl border p-2.5 text-left transition focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-primary ${
+          isSelected
+            ? 'border-white bg-white text-gray-950 shadow-md shadow-indigo-950/20'
+            : 'border-white/15 bg-white/10 text-white hover:border-white/40 hover:bg-white/15'
+        }`}
+      >
+        <span className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-3">
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+              isSelected
+                ? isClosed
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-indigo-50 text-primary'
+                : 'bg-white/15 text-white'
+            }`}>
+              {isClosed ? <CheckCircle2 size={20} /> : <Icon size={20} />}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold">
+                {expenseSet.name}
+              </span>
+            </span>
+          </span>
+          <ChevronRight
+            size={16}
+            className={`shrink-0 transition ${
+              isSelected ? 'text-primary' : 'text-white/70 group-hover:text-white'
+            }`}
+          />
+        </span>
+      </button>
+    );
+  };
+
+  const renderSupportPanel = () => {
+    if (!selectedExpenseSet) return null;
+
+    if (workspaceTab === 'closeout') {
+      return (
+        <TripCloseoutPanel
+          currentUserId={user?.id || ''}
+          expenseSetId={selectedExpenseSetId}
+          expenseSetName={selectedExpenseSet.name}
+          expenseCount={expenses.length}
+          onCloseoutChanged={handleCloseoutChanged}
+        />
+      );
+    }
+
+    if (workspaceTab === 'activity') {
+      return (
+        <ActivityFeed
+          currentUserId={user?.id || ''}
+          expenseSetId={selectedExpenseSetId}
+          refreshKey={activityRefreshKey}
+        />
+      );
+    }
+
+    return (
+      <SettlementSummary
+        expenses={expenses}
+        currentUserId={user?.id || ''}
+        expenseSetId={selectedExpenseSetId}
+        onSettlementChanged={handleSettlementChanged}
+      />
+    );
   };
 
   if (loading) {
@@ -163,9 +371,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#eef2ff_0,#f8fafc_34%,#f1f5f9_100%)]">
+      <nav className="sticky top-0 z-20 border-b border-white/70 bg-white/85 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
             <DollarSign size={28} className="text-primary" />
             <h1 className="text-2xl font-bold text-gray-900">ShareExpenses</h1>
@@ -183,7 +391,7 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="mx-auto max-w-[1440px] px-6 py-8">
         <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center mb-8">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">Expense Sets</h2>
@@ -227,34 +435,141 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            <div className="bg-white rounded-lg shadow p-4 mb-8">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Selected Expense Set
-                  </label>
-                  <select
-                    value={selectedExpenseSetId}
-                    onChange={(event) => setSelectedExpenseSetId(event.target.value)}
-                    className="input-field"
-                  >
-                    {expenseSets.map((expenseSet) => (
-                      <option key={expenseSet.id} value={expenseSet.id}>
-                        {expenseSet.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)_360px]">
+              <aside className="space-y-4">
+                <section className="rounded-2xl bg-gradient-to-br from-primary to-blue-600 p-3 text-white shadow-xl shadow-indigo-200/70">
+                  <div className="grid grid-cols-2 gap-2 rounded-xl bg-white/15 p-1" aria-label="Expense Set view">
+                    <button
+                      type="button"
+                      onClick={() => setExpenseSetView('active')}
+                      className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                        expenseSetView === 'active'
+                          ? 'bg-white text-primary shadow-md shadow-indigo-950/10'
+                          : 'text-white/80 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >Open</button>
+                    <button
+                      type="button"
+                      onClick={() => setExpenseSetView('closed')}
+                      className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                        expenseSetView === 'closed'
+                          ? 'bg-white text-emerald-700 shadow-md shadow-indigo-950/10'
+                          : 'text-white/80 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >Archive</button>
+                  </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    onClick={() => setShowMembersModal(true)}
-                    className="btn-secondary flex items-center justify-center gap-2"
-                    disabled={!selectedExpenseSet || membersLoading}
-                  >
-                    <UserPlus size={20} />
-                    Members ({members.length})
-                  </button>
+                  <div className="relative mt-3">
+                    <Search size={16} className="pointer-events-none absolute left-3 top-2.5 text-primary/60" />
+                    <input
+                      type="search"
+                      value={expenseSetSearch}
+                      onChange={(event) => setExpenseSetSearch(event.target.value)}
+                      placeholder="Search Expense Sets"
+                      className="w-full rounded-xl border border-white bg-white py-2 pl-9 pr-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:ring-2 focus:ring-white/70"
+                    />
+                  </div>
+
+                  <div className="my-3 flex items-center justify-between text-xs font-semibold text-white/75">
+                    <span>
+                      {filteredExpenseSets.length} {filteredExpenseSets.length === 1 ? 'set' : 'sets'}
+                    </span>
+                    <span>
+                      Page {currentExpenseSetPage + 1} of {totalExpenseSetPages}
+                    </span>
+                  </div>
+
+                  {visibleExpenseSets.length > 0 ? (
+                    <div role="tablist" aria-label="Expense Sets" className="space-y-2">
+                      {visibleExpenseSets.map((expenseSet) =>
+                        renderExpenseSetButton(expenseSet, expenseSetView === 'closed')
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-white/35 bg-white/10 p-3 text-sm text-white/80">
+                      No matching Expense Sets.
+                    </div>
+                  )}
+
+                  {filteredExpenseSets.length > EXPENSE_SET_PAGE_SIZE && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentExpenseSetPage((page) => Math.max(0, page - 1))}
+                        disabled={currentExpenseSetPage === 0}
+                        className="flex items-center justify-center gap-1 rounded-lg border border-white/30 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                      >
+                        <ChevronLeft size={16} />
+                        Previous
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCurrentExpenseSetPage((page) => Math.min(totalExpenseSetPages - 1, page + 1))
+                        }
+                        disabled={currentExpenseSetPage >= totalExpenseSetPages - 1}
+                        className="flex items-center justify-center gap-1 rounded-lg border border-white/30 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                      >
+                        Next
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  )}
+                </section>
+
+                {selectedExpenseSet && (
+                  <section className="rounded-lg border border-indigo-100 bg-white/95 p-4 shadow-sm shadow-indigo-100/50">
+                    <p className="mb-3 text-sm font-semibold text-gray-900">Selected Set</p>
+                    <div className="space-y-3">
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Members</p>
+                        <div className="mt-2 flex items-center justify-between gap-3">
+                          <p className="text-2xl font-bold text-gray-950">{members.length}</p>
+                          <button
+                            type="button"
+                            onClick={() => setShowMembersModal(true)}
+                            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-white"
+                            disabled={membersLoading}
+                          >
+                            Manage
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Closeout</p>
+                        <div className="mt-2 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-gray-950">
+                              {selectedCloseout ? 'Ready' : 'Open'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {selectedCloseout ? 'Saved summary available' : 'Generate when settled'}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setWorkspaceTab('closeout')}
+                            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-white"
+                          >
+                            View
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+              </aside>
+
+              <main>
+                <div className="mb-4 flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-500">Expense Ledger</p>
+                    <h3 className="text-xl font-bold text-gray-950">
+                      {selectedExpenseSet?.name || 'Select an Expense Set'}
+                    </h3>
+                  </div>
                   <button
                     onClick={() => {
                       setEditingExpense(null);
@@ -267,11 +582,6 @@ export default function Dashboard() {
                     Add Expense
                   </button>
                 </div>
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="md:col-span-2">
                 <div className="bg-white rounded-lg shadow">
                   {expensesLoading ? (
                     <div className="p-8 text-center">
@@ -297,35 +607,36 @@ export default function Dashboard() {
                     />
                   )}
                 </div>
-              </div>
+              </main>
 
-              <div className="md:col-span-1">
-                {selectedExpenseSet && (
-                  <div className="mb-8">
-                    <TripCloseoutPanel
-                      currentUserId={user?.id || ''}
-                      expenseSetId={selectedExpenseSetId}
-                      expenseSetName={selectedExpenseSet.name}
-                      expenseCount={expenses.length}
-                    />
+              <aside>
+                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow">
+                  <div className="grid grid-cols-3 gap-2">
+                    {supportTabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = workspaceTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setWorkspaceTab(tab.id)}
+                          className={`flex min-h-[44px] items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition ${
+                            isActive
+                              ? 'bg-primary text-white shadow-sm'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-950'
+                          }`}
+                        >
+                          <Icon size={16} />
+                          {tab.label}
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
-                <SettlementSummary
-                  expenses={expenses}
-                  currentUserId={user?.id || ''}
-                  expenseSetId={selectedExpenseSetId}
-                  onSettlementChanged={handleSettlementChanged}
-                />
-                {selectedExpenseSet && (
-                  <div className="mt-8">
-                    <ActivityFeed
-                      currentUserId={user?.id || ''}
-                      expenseSetId={selectedExpenseSetId}
-                      refreshKey={activityRefreshKey}
-                    />
+                  <div className="mt-4">
+                    {renderSupportPanel()}
                   </div>
-                )}
-              </div>
+                </div>
+              </aside>
             </div>
           </>
         )}

@@ -10,6 +10,7 @@ interface TripCloseoutPanelProps {
   expenseSetId: string;
   expenseSetName: string;
   expenseCount: number;
+  onCloseoutChanged?: () => void;
 }
 
 export default function TripCloseoutPanel({
@@ -17,6 +18,7 @@ export default function TripCloseoutPanel({
   expenseSetId,
   expenseSetName,
   expenseCount,
+  onCloseoutChanged,
 }: TripCloseoutPanelProps) {
   const [closeout, setCloseout] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
@@ -63,6 +65,7 @@ export default function TripCloseoutPanel({
         throw new Error(payload?.error || 'Failed to generate Trip Closeout');
       }
       setCloseout(payload);
+      onCloseoutChanged?.();
     } catch (err: any) {
       setError(err.message || 'Failed to generate Trip Closeout');
     } finally {
