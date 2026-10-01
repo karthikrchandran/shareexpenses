@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, X } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { ExpenseSet, User } from '@/lib/types';
+import { AlertCircle, Plus, ShieldCheck, X } from 'lucide-react';
+import { ExpenseSet } from '@/lib/types';
 
 interface CreateExpenseSetModalProps {
   isOpen: boolean;
@@ -20,47 +19,39 @@ export default function CreateExpenseSetModal({
 }: CreateExpenseSetModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [memberEmails, setMemberEmails] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    const loadUsers = async () => {
-      if (!isOpen) return;
-
-      const { data, error: usersError } = await supabase
-        .from('users')
-        .select('id, email, name, phone, venmo_handle, avatar_url, created_at')
-        .neq('id', currentUserId)
-        .order('name', { ascending: true });
-
-      if (usersError) {
-        console.error('Failed to load users for Expense Set creation:', usersError);
-        return;
-      }
-
-      setUsers(data || []);
-    };
-
-    loadUsers();
-  }, [isOpen, currentUserId]);
 
   useEffect(() => {
     if (!isOpen) {
       setName('');
       setDescription('');
-      setSelectedMemberIds([]);
+      setInviteEmail('');
+      setMemberEmails([]);
       setError('');
     }
   }, [isOpen]);
 
-  const handleToggleMember = (userId: string) => {
-    setSelectedMemberIds((current) =>
-      current.includes(userId)
-        ? current.filter((id) => id !== userId)
-        : [...current, userId]
-    );
+  const handleAddEmail = () => {
+    const trimmed = inviteEmail.trim().toLowerCase();
+    if (!trimmed) return;
+    if (!trimmed.includes('@') || !trimmed.includes('.')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    if (memberEmails.includes(trimmed)) {
+      setInviteEmail('');
+      return;
+    }
+    setMemberEmails((prev) => [...prev, trimmed]);
+    setInviteEmail('');
+    setError('');
+  };
+
+  const handleRemoveEmail = (emailToRemove: string) => {
+    setMemberEmails((prev) => prev.filter((e) => e !== emailToRemove));
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -78,7 +69,7 @@ export default function CreateExpenseSetModal({
           name: name.trim(),
           description: description.trim(),
           createdByUserId: currentUserId,
-          memberIds: selectedMemberIds,
+          memberEmails,
         }),
       });
 
@@ -147,30 +138,55 @@ export default function CreateExpenseSetModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Members
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Invite Members by Email <span className="text-gray-400 font-normal">(optional)</span>
             </label>
-            <div className="space-y-2 max-h-44 overflow-y-auto border border-gray-200 rounded-lg p-2">
-              {users.length === 0 ? (
-                <p className="text-sm text-gray-500 p-2">No other registered users yet</p>
-              ) : (
-                users.map((user) => (
-                  <label
-                    key={user.id}
-                    className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+            <div className="flex gap-2 mb-2">
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddEmail();
+                  }
+                }}
+                placeholder="friend@example.com"
+                className="input-field text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleAddEmail}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition shrink-0"
+              >
+                Add
+              </button>
+            </div>
+
+            {memberEmails.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {memberEmails.map((email) => (
+                  <span
+                    key={email}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-200"
                   >
-                    <input
-                      type="checkbox"
-                      checked={selectedMemberIds.includes(user.id)}
-                      onChange={() => handleToggleMember(user.id)}
-                      className="rounded"
-                    />
-                    <span className="text-sm text-gray-700">
-                      {user.name} <span className="text-gray-400">{user.email}</span>
-                    </span>
-                  </label>
-                ))
-              )}
+                    {email}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEmail(email)}
+                      className="text-indigo-400 hover:text-indigo-600"
+                    >
+                      <X size={13} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-2">
+              <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
+              <span>User privacy is protected. Users are never listed publicly. You can also share a private join link after creating.</span>
             </div>
           </div>
 

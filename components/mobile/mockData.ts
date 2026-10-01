@@ -15,6 +15,7 @@ export interface MobileGroup {
   totalSpend: number;
   userBalance: number; // positive = owed to user, negative = user owes
   category: string;
+  join_token?: string;
 }
 
 export interface MobileExpense {

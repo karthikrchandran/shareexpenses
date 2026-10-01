@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MobileGroup, MobileUser } from './mockData';
 import {
   BedDouble,
@@ -56,6 +56,21 @@ export default function MobileAddExpenseModal({
   const [groupId, setGroupId] = useState(selectedGroupId || (groups[0] ? groups[0].id : ''));
   const [splitType, setSplitType] = useState<'equal' | 'you_paid_all' | 'they_owe_all'>('equal');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setGroupId((prev) => {
+        if (selectedGroupId && groups.some((g) => g.id === selectedGroupId)) {
+          return selectedGroupId;
+        }
+        if (prev && groups.some((g) => g.id === prev)) {
+          return prev;
+        }
+        return groups[0]?.id || '';
+      });
+      setError('');
+    }
+  }, [isOpen, selectedGroupId, groups]);
 
   if (!isOpen) return null;
 

@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Copy, Link as LinkIcon, X } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { ExpenseSet, ExpenseSetMember, User } from '@/lib/types';
+import { useEffect, useState } from 'react';
+import { AlertCircle, CheckCircle, Copy, Link as LinkIcon, ShieldCheck, UserPlus, X } from 'lucide-react';
+import { ExpenseSet, ExpenseSetMember } from '@/lib/types';
 
 interface ManageExpenseSetMembersModalProps {
   isOpen: boolean;
@@ -22,47 +21,21 @@ export default function ManageExpenseSetMembersModal({
   members,
   currentUserId,
 }: ManageExpenseSetMembersModalProps) {
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState('');
+  const [memberEmail, setMemberEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [joinLinkLoading, setJoinLinkLoading] = useState(false);
   const [joinLink, setJoinLink] = useState('');
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [copyMessage, setCopyMessage] = useState('');
-
-  const memberIds = useMemo(
-    () => new Set(members.map((member) => member.user_id)),
-    [members]
-  );
-
-  const availableUsers = users.filter((user) => !memberIds.has(user.id));
-
-  useEffect(() => {
-    const loadUsers = async () => {
-      if (!isOpen) return;
-
-      const { data, error: usersError } = await supabase
-        .from('users')
-        .select('id, email, name, phone, venmo_handle, avatar_url, created_at')
-        .order('name', { ascending: true });
-
-      if (usersError) {
-        console.error('Failed to load users for member management:', usersError);
-        return;
-      }
-
-      setUsers(data || []);
-    };
-
-    loadUsers();
-  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
-      setSelectedUserId('');
+      setMemberEmail('');
       setJoinLink('');
       setCopyMessage('');
       setError('');
+      setSuccessMessage('');
     }
   }, [isOpen]);
 
@@ -93,14 +66,16 @@ export default function ManageExpenseSetMembersModal({
   const handleCopyJoinLink = async () => {
     if (!joinLink) return;
     await navigator.clipboard.writeText(joinLink);
-    setCopyMessage('Join link copied.');
+    setCopyMessage('Join link copied to clipboard.');
   };
 
   const handleAddMember = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!selectedUserId) return;
+    const cleanEmail = memberEmail.trim().toLowerCase();
+    if (!cleanEmail) return;
 
     setError('');
+    setSuccessMessage('');
     setLoading(true);
 
     try {
@@ -111,7 +86,7 @@ export default function ManageExpenseSetMembersModal({
         },
         body: JSON.stringify({
           actorUserId: currentUserId,
-          userId: selectedUserId,
+          email: cleanEmail,
         }),
       });
 
@@ -120,7 +95,8 @@ export default function ManageExpenseSetMembersModal({
         throw new Error(payload?.error || 'Failed to add member');
       }
 
-      setSelectedUserId('');
+      setMemberEmail('');
+      setSuccessMessage(`Member (${cleanEmail}) added successfully.`);
       onMembersChanged();
     } catch (err: any) {
       setError(err.message || 'Failed to add member');
@@ -154,8 +130,15 @@ export default function ManageExpenseSetMembersModal({
             </div>
           )}
 
+          {successMessage && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded flex gap-2">
+              <CheckCircle size={18} className="text-green-600 flex-shrink-0 mt-0.5" />
+              <span className="text-green-700 text-sm">{successMessage}</span>
+            </div>
+          )}
+
           <div>
-            <p className="text-sm text-gray-600 mb-2">Expense Set</p>
+            <p className="text-sm text-gray-600 mb-1">Expense Set</p>
             <p className="font-semibold text-gray-900">{expenseSet.name}</p>
           </div>
 
@@ -165,7 +148,7 @@ export default function ManageExpenseSetMembersModal({
               <div className="flex-1">
                 <p className="text-sm font-semibold text-blue-950">Friend join link</p>
                 <p className="mt-1 text-xs text-blue-800">
-                  Send this to friends. After login or signup, they will join this Expense Set automatically.
+                  Send this link to friends. After login or signup, they will join this Expense Set automatically.
                 </p>
                 {joinLink && (
                   <input
@@ -200,47 +183,51 @@ export default function ManageExpenseSetMembersModal({
           </div>
 
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Current Members</p>
-            <div className="space-y-2 border border-gray-200 rounded-lg p-2">
+            <p className="text-sm font-medium text-gray-700 mb-2">Current Members ({members.length})</p>
+            <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
               {members.map((member) => (
-                <div key={member.id} className="p-2 rounded bg-gray-50">
-                  <p className="text-sm font-medium text-gray-900">
-                    {member.user?.name || 'Member'}
-                    {member.user_id === currentUserId && ' (You)'}
-                  </p>
-                  <p className="text-xs text-gray-500">{member.user?.email}</p>
+                <div key={member.id} className="p-2 rounded bg-gray-50 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {member.user?.name || 'Member'}
+                      {member.user_id === currentUserId && ' (You)'}
+                    </p>
+                    <p className="text-xs text-gray-500">{member.user?.email}</p>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <form onSubmit={handleAddMember} className="space-y-3">
+          <form onSubmit={handleAddMember} className="space-y-3 pt-1">
             <label className="block text-sm font-medium text-gray-700">
-              Add registered user
+              Add Member by Email
             </label>
-            <select
-              value={selectedUserId}
-              onChange={(event) => setSelectedUserId(event.target.value)}
-              className="input-field"
-              disabled={availableUsers.length === 0}
-            >
-              <option value="">
-                {availableUsers.length === 0 ? 'No users available' : 'Select a user'}
-              </option>
-              {availableUsers.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.name} ({user.email})
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="submit"
-              disabled={loading || !selectedUserId}
-              className="btn-primary w-full disabled:opacity-50"
-            >
-              {loading ? 'Adding...' : 'Add Member'}
-            </button>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={memberEmail}
+                onChange={(event) => {
+                  setMemberEmail(event.target.value);
+                  if (error) setError('');
+                }}
+                placeholder="friend@example.com"
+                className="input-field text-sm"
+                required
+              />
+              <button
+                type="submit"
+                disabled={loading || !memberEmail.trim()}
+                className="btn-primary px-4 py-2 shrink-0 disabled:opacity-50 inline-flex items-center gap-1.5 text-sm"
+              >
+                <UserPlus size={16} />
+                <span>{loading ? 'Adding...' : 'Add'}</span>
+              </button>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1">
+              <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
+              <span>User privacy is protected. Users are never listed in a public directory.</span>
+            </div>
           </form>
         </div>
       </div>

@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, X, Sparkles, Check } from 'lucide-react';
-import { MobileGroup, MOCK_USERS, CURRENT_USER } from './mockData';
+import { Plus, X, Sparkles, Check, ShieldCheck, Mail } from 'lucide-react';
+import { MobileGroup } from './mockData';
 
 interface MobileCreateGroupModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateGroup: (group: { name: string; emoji: string; category: string }) => void;
+  onCreateGroup: (group: { name: string; emoji: string; category: string; memberEmails?: string[] }) => void;
   osTheme: 'ios' | 'android';
 }
 
@@ -23,9 +23,31 @@ export default function MobileCreateGroupModal({
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState('🏖️');
   const [category, setCategory] = useState('Trip');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [memberEmails, setMemberEmails] = useState<string[]>([]);
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
+
+  const handleAddEmail = () => {
+    const trimmed = inviteEmail.trim().toLowerCase();
+    if (!trimmed) return;
+    if (!trimmed.includes('@') || !trimmed.includes('.')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    if (memberEmails.includes(trimmed)) {
+      setInviteEmail('');
+      return;
+    }
+    setMemberEmails((prev) => [...prev, trimmed]);
+    setInviteEmail('');
+    setError('');
+  };
+
+  const handleRemoveEmail = (emailToRemove: string) => {
+    setMemberEmails((prev) => prev.filter((e) => e !== emailToRemove));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,8 +59,11 @@ export default function MobileCreateGroupModal({
       name: name.trim(),
       emoji,
       category,
+      memberEmails,
     });
     setName('');
+    setInviteEmail('');
+    setMemberEmails([]);
     setError('');
     onClose();
   };
@@ -51,7 +76,7 @@ export default function MobileCreateGroupModal({
       />
 
       <div
-        className={`relative w-full max-w-[430px] bg-white p-5 flex flex-col z-10 shadow-2xl transition-all duration-300 ${
+        className={`relative w-full max-w-[430px] bg-white p-5 flex flex-col z-10 shadow-2xl transition-all duration-300 max-h-[92vh] overflow-y-auto ${
           osTheme === 'ios'
             ? 'rounded-t-[32px] border-t border-slate-200'
             : 'rounded-t-[28px]'
@@ -149,7 +174,61 @@ export default function MobileCreateGroupModal({
             </div>
           </div>
 
-          <div className="pt-3">
+          {/* Invite Members by Email */}
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+              Add Members by Email <span className="text-slate-400 font-normal lowercase">(optional)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="email"
+                placeholder="friend@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddEmail();
+                  }
+                }}
+                className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white"
+              />
+              <button
+                type="button"
+                onClick={handleAddEmail}
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition shrink-0"
+              >
+                Add
+              </button>
+            </div>
+
+            {memberEmails.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {memberEmails.map((email) => (
+                  <span
+                    key={email}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-medium border border-indigo-200"
+                  >
+                    {email}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEmail(email)}
+                      className="text-indigo-400 hover:text-indigo-600"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-2">
+              <ShieldCheck size={13} className="text-emerald-600 shrink-0" />
+              <span>Privacy protected. No public user lists. You can also share a private join link after creating.</span>
+            </div>
+          </div>
+
+          <div className="pt-2">
             <button
               type="submit"
               className={`w-full py-3.5 px-4 rounded-2xl font-bold text-xs text-white shadow-lg transition active:scale-98 flex items-center justify-center gap-2 ${

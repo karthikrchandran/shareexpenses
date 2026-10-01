@@ -99,3 +99,53 @@ test('navigation on home and dashboard links to the mobile experience', () => {
   assert.match(home, /href="\/mobile"/);
   assert.match(dashboard, /href="\/mobile"/);
 });
+
+test('mobile app connects to live webapp data through authentication and api endpoints', () => {
+  const mobileSource = read('components/mobile/MobileApp.tsx');
+
+  assert.match(mobileSource, /useAuth/);
+  assert.match(mobileSource, /\/api\/expense-sets\?userId=/);
+  assert.match(mobileSource, /\/api\/expenses\?userId=/);
+  assert.match(mobileSource, /\/api\/settlements\?userId=/);
+  assert.match(mobileSource, /calculateSettlements/);
+});
+
+test('group creation does not auto-assign dummy members and respects user privacy', () => {
+  const mobileAppSource = read('components/mobile/MobileApp.tsx');
+  const createModalSource = read('components/mobile/MobileCreateGroupModal.tsx');
+  const webCreateModal = read('components/CreateExpenseSetModal.tsx');
+  const webManageModal = read('components/ManageExpenseSetMembersModal.tsx');
+
+  // Must not hardcode dummy mock users into new group members
+  assert.equal(
+    mobileAppSource.includes('members: [CURRENT_USER, MOCK_USERS[1], MOCK_USERS[2]]'),
+    false,
+    'New groups should not automatically assign dummy users'
+  );
+
+  // Group creation modal supports inviting by email
+  assert.match(createModalSource, /memberEmails/);
+  assert.match(createModalSource, /Add Members by Email/i);
+
+  // Web modals do not query all users globally from database
+  assert.equal(
+    webCreateModal.includes(".from('users')"),
+    false,
+    'CreateExpenseSetModal must not query all users globally'
+  );
+  assert.equal(
+    webManageModal.includes(".from('users')"),
+    false,
+    'ManageExpenseSetMembersModal must not query all users globally'
+  );
+});
+
+test('mobile app provides private join link and email-based member invitation modal', () => {
+  const addMemberModal = read('components/mobile/MobileAddMemberModal.tsx');
+  const groupsView = read('components/mobile/MobileGroupsView.tsx');
+
+  assert.match(addMemberModal, /Private Invite Link/);
+  assert.match(addMemberModal, /Add by Registered Email/i);
+  assert.match(addMemberModal, /\/api\/expense-sets\/.*\/members/);
+  assert.match(groupsView, /onAddMember/);
+});

@@ -67,21 +67,6 @@ export default function SettlementSummary({
 
       setSplits(splitsData || []);
 
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('id, name');
-
-      if (usersError) {
-        console.error('Failed to load users for settlements:', usersError);
-        return;
-      }
-
-      const mappedUsers = (usersData || []).reduce((acc: Record<string, string>, user: any) => {
-        acc[user.id] = user.name;
-        return acc;
-      }, {});
-      setUsersById(mappedUsers);
-
       const settlementsResponse = await fetch(
         `/api/settlements?userId=${encodeURIComponent(currentUserId)}&groupId=${encodeURIComponent(expenseSetId)}`
       );
@@ -91,6 +76,33 @@ export default function SettlementSummary({
       }
 
       setSettledPayments(settlementsPayload || []);
+
+      const participantIds = Array.from(
+        new Set([
+          currentUserId,
+          ...expenses.map((e) => e.paid_by_user_id),
+          ...(splitsData || []).map((s: any) => s.user_id),
+          ...(Array.isArray(settlementsPayload) ? settlementsPayload : []).flatMap((s: any) => [s.from_user_id, s.to_user_id]),
+        ])
+      ).filter(Boolean);
+
+      let mappedUsers: Record<string, string> = {};
+      if (participantIds.length > 0) {
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, name')
+          .in('id', participantIds);
+
+        if (usersError) {
+          console.error('Failed to load users for settlements:', usersError);
+        } else {
+          mappedUsers = (usersData || []).reduce((acc: Record<string, string>, user: any) => {
+            acc[user.id] = user.name;
+            return acc;
+          }, {});
+        }
+      }
+      setUsersById(mappedUsers);
     };
 
     loadSettlementData().catch((error) => {

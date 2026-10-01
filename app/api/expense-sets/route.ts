@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createServiceRoleClient();
     const body = await request.json();
-    const { name, description, createdByUserId, memberIds = [] } = body;
+    const { name, description, createdByUserId, memberIds = [], memberEmails = [] } = body;
 
     const rateLimit = checkApiRateLimit(request, createdByUserId);
     if (!rateLimit.allowed) {
@@ -50,8 +50,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let additionalMemberIds: string[] = [];
+    if (Array.isArray(memberEmails) && memberEmails.length > 0) {
+      const cleanEmails = memberEmails
+        .map((e: any) => String(e || '').trim().toLowerCase())
+        .filter(Boolean);
+      if (cleanEmails.length > 0) {
+        const { data: foundByEmail } = await supabase
+          .from('users')
+          .select('id')
+          .in('email', cleanEmails);
+        if (foundByEmail) {
+          additionalMemberIds = foundByEmail.map((u: any) => u.id);
+        }
+      }
+    }
+
     const uniqueMemberIds = [
-      ...new Set([createdByUserId, ...memberIds].filter(Boolean)),
+      ...new Set([createdByUserId, ...memberIds, ...additionalMemberIds].filter(Boolean)),
     ];
 
     const { data: existingUsers, error: usersError } = await supabase

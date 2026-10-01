@@ -57,16 +57,16 @@ export async function POST(
   try {
     const supabase = createServiceRoleClient();
     const body = await request.json();
-    const { actorUserId, userId } = body;
+    const { actorUserId, userId, email } = body;
 
     const rateLimit = checkApiRateLimit(request, actorUserId);
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
-    if (!actorUserId || !userId) {
+    if (!actorUserId || (!userId && !email)) {
       return NextResponse.json(
-        { error: 'actorUserId and userId are required' },
+        { error: 'actorUserId and either userId or email are required' },
         { status: 400 }
       );
     }
@@ -78,25 +78,44 @@ export async function POST(
       );
     }
 
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle();
+    let targetUserId = userId;
+    if (!targetUserId && email) {
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const { data: userByEmail, error: emailError } = await supabase
+        .from('users')
+        .select('id, email, name')
+        .ilike('email', normalizedEmail)
+        .maybeSingle();
 
-    if (userError) throw userError;
+      if (emailError) throw emailError;
+      if (!userByEmail) {
+        return NextResponse.json(
+          { error: `No registered user found with email "${String(email).trim()}". Share the private invite link with them so they can join!` },
+          { status: 404 }
+        );
+      }
+      targetUserId = userByEmail.id;
+    } else {
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', targetUserId)
+        .maybeSingle();
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User must be registered before they can be added' },
-        { status: 400 }
-      );
+      if (userError) throw userError;
+
+      if (!user) {
+        return NextResponse.json(
+          { error: 'User must be registered before they can be added' },
+          { status: 400 }
+        );
+      }
     }
 
     const { error } = await supabase
       .from('group_members')
       .upsert(
-        { group_id: params.id, user_id: userId },
+        { group_id: params.id, user_id: targetUserId },
         { onConflict: 'group_id,user_id' }
       );
 
@@ -107,7 +126,7 @@ export async function POST(
       actorUserId,
       action: 'member.added',
       targetType: 'member',
-      targetId: userId,
+      targetId: targetUserId,
       metadata: {},
     });
 
