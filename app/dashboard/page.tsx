@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useAuth, logout } from '@/lib/useAuth';
 import {
   Activity,
@@ -14,6 +15,7 @@ import {
   Plane,
   Plus,
   Search,
+  Smartphone,
   Sparkles,
   UsersRound,
   WalletCards,
@@ -381,6 +383,13 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold text-gray-900">ShareExpenses</h1>
           </div>
           <div className="flex items-center gap-4">
+            <Link
+              href="/mobile"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold border border-indigo-200 transition"
+            >
+              <Smartphone size={16} />
+              <span>Mobile App</span>
+            </Link>
             <span className="text-gray-700">{user?.email}</span>
             <button
               onClick={handleLogout}

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { DollarSign, Users, BarChart3, Zap } from 'lucide-react';
+import { DollarSign, Users, BarChart3, Zap, Smartphone } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -30,6 +30,15 @@ export default function Home() {
 
       {/* Hero Section */}
       <section className="text-white text-center py-12 px-6 md:py-16">
+        <div className="mb-6 flex justify-center">
+          <Link
+            href="/mobile"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/15 hover:bg-white/25 text-white text-sm font-semibold border border-white/25 backdrop-blur-md transition shadow-md"
+          >
+            <Smartphone size={16} />
+            <span>Launch iOS &amp; Android Mobile App 📱</span>
+          </Link>
+        </div>
         <h1 className="text-5xl md:text-6xl font-bold mb-6">
           Split Expenses with Friends
         </h1>
